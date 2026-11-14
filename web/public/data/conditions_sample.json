@@ -1,0 +1,12 @@
+{
+  "isSample": true,
+  "note": "SAMPLE DATA for the demo. Replace with real Perseverance MEDA readings when available.",
+  "source": "Sample data (not a real measurement)",
+  "readings": [
+    { "sol": 100, "temperatureC": -60, "pressurePa": 740 },
+    { "sol": 101, "temperatureC": -58, "pressurePa": 742 },
+    { "sol": 102, "temperatureC": -61, "pressurePa": 738 },
+    { "sol": 103, "temperatureC": -59, "pressurePa": 741 },
+    { "sol": 104, "temperatureC": -62, "pressurePa": 737 }
+  ]
+}
