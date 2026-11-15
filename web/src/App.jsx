@@ -19,8 +19,8 @@ export default function App() {
   const updateGlobeViewport = useCallback((viewport) => {
     dispatch({ type: "UPDATE_VIEWPORT", view: "globe", viewport });
   }, []);
-  const enterMap = useCallback((viewport) => {
-    dispatch({ type: "ENTER_MAP", viewport });
+  const enterMap = useCallback((viewport, { focusStudyArea = false } = {}) => {
+    dispatch({ type: "ENTER_MAP", viewport, focusStudyArea });
   }, []);
   const updateMapViewport = useCallback((viewport) => dispatch({ type: "UPDATE_VIEWPORT", view: "map", viewport }), []);
   const exitMap = useCallback((viewport) => dispatch({ type: "EXIT_MAP", viewport }), []);

@@ -28,6 +28,7 @@ try {
   await page.mouse.wheel(0, -12000);
   await page.locator('.mars-map[data-terrain="ready"]').waitFor();
   await page.getByRole("button", { name: "Toggle hazard overlay" }).click();
+  await page.getByRole("button", { name: "Route planner", exact: true }).click();
   await page.getByText("Hazards: Jezero study area only", { exact: true }).waitFor();
   await page.locator(".hazard-raster").waitFor();
   await page.waitForFunction(() => [...document.querySelectorAll("img.leaflet-tile-loaded[data-layer]")]

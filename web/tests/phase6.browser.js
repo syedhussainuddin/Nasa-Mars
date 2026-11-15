@@ -41,7 +41,7 @@ async function checkLayout(page, name) {
       layout.footer.y + layout.footer.height <= layout.hazards.y ||
       layout.hazards.y + layout.hazards.height <= layout.footer.y, `${name}: footer/hazard overlap`);
   }
-  assert.equal(layout.buttons.length, 3, "no extra controls");
+  assert.equal(layout.buttons.length, layout.footer ? 3 : 2, "hazard control belongs only to 2D");
   assert.ok(layout.buttons.every((button) => button.width === 40 && button.height === 40));
   assert.ok(layout.metricCells.every((cell) => cell.x >= layout.header.x && cell.x + cell.width <= layout.header.x + layout.header.width));
   assert.ok(layout.font.includes("Barlow"));
@@ -77,8 +77,13 @@ export async function checkPhase6(page, url) {
     await page.locator('.mars-globe[data-status="ready"]').waitFor();
     await page.evaluate(() => document.fonts.ready);
     await checkLayout(page, `${size.name} globe`);
-    assert.equal(await page.locator(".globe-marker:not([hidden])").count(), 4);
+    await page.getByRole("button", { name: "Zoom to Jezero Study Area" }).waitFor();
+    assert.equal(await page.locator(".globe-marker").count(), 1);
     await page.screenshot({ path: join(directory, `${size.name}-globe.png`) });
+    await page.getByRole("button", { name: "Zoom to Jezero Study Area" }).tap();
+    await page.locator('.mars-map[data-terrain="ready"]').waitFor();
+    await page.waitForFunction(() => Number(document.querySelector(".mars-map").dataset.zoom) >= 10);
+    await page.getByText("JEZERO · STUDY AREA", { exact: true }).waitFor();
     await page.getByRole("button", { name: "Route planner", exact: true }).tap();
     await checkLayout(page, `${size.name} compact planner`);
     await page.getByRole("button", { name: "Calculate Route", exact: true }).tap();

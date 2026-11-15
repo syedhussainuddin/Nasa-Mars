@@ -88,7 +88,7 @@ export async function checkPhase4(page, url) {
   const requests = await installImageryFixtures(page);
   await page.goto(url);
   await page.locator('.mars-globe[data-status="ready"]').waitFor();
-  await page.getByRole("button", { name: "Switch to 2D map" }).click();
+  await page.getByRole("button", { name: "Zoom to Jezero Study Area" }).click();
   await page.locator('.mars-map[data-terrain="ready"]').waitFor();
   await page.waitForFunction(() => document.querySelectorAll('img.leaflet-tile-loaded[data-layer="CTX"]').length > 0);
   assert.equal(await page.locator(".leaflet-control-zoom").count(), 0);
@@ -180,7 +180,9 @@ export async function checkPhase4(page, url) {
   assert.ok(Math.abs(Number(await page.locator(".mars-globe").getAttribute("data-center-lat")) - exitCenter.lat) < 0.01);
   assert.ok(Math.abs(Number(await page.locator(".mars-globe").getAttribute("data-center-lon")) - exitCenter.lon) < 0.01);
   assert.equal(await page.locator("#planner-panel").isVisible(), true);
-  await page.getByRole("button", { name: "Switch to 2D map" }).click();
+  // Use manual zoom here to test retained endpoints without a marker-triggered fit.
+  await page.mouse.move(720, 850);
+  await page.mouse.wheel(0, -12000);
   await page.locator('.mars-map[data-terrain="ready"]').waitFor();
   assert.equal(Number(await page.locator(".mars-map").getAttribute("data-zoom")), 4);
   await page.locator(".map-endpoint-end").waitFor();
@@ -218,7 +220,7 @@ export async function checkPhase4(page, url) {
   await page.unroute("**/__ortho.svg");
   await page.route("**/data/jezero_grid.json", (request) => request.fulfill({ json: [] }));
   await page.goto(url);
-  await page.getByRole("button", { name: "Switch to 2D map" }).click();
+  await page.getByRole("button", { name: "Zoom to Jezero Study Area" }).click();
   await page.locator('.mars-map[data-terrain="error"]').waitFor();
   await page.getByRole("alert").filter({ hasText: "Endpoint selection and hazards are unavailable" }).waitFor();
   await page.mouse.click(1000, 700);

@@ -31,9 +31,8 @@ export async function checkPhase2(page, url) {
   });
   assert.deepEqual(geometry.header, { x: 408, y: 49, width: 624, height: 118 });
   assert.deepEqual(geometry.tools, [
-    { x: 1336, y: 437, width: 40, height: 40 },
-    { x: 1336, y: 492, width: 40, height: 40 },
-    { x: 1336, y: 547, width: 40, height: 40 },
+    { x: 1336, y: 464.5, width: 40, height: 40 },
+    { x: 1336, y: 519.5, width: 40, height: 40 },
   ]);
   assert.equal(geometry.low, "rgb(0, 200, 83)");
   assert.ok(geometry.font.includes("Barlow") && geometry.fontReady);
@@ -68,7 +67,9 @@ export async function checkPhase2(page, url) {
   assert.equal(await info.evaluate((button) => button === document.activeElement), true);
 
   await planner.click();
-  await page.getByRole("button", { name: "Switch to 2D map" }).click();
+  assert.equal(await page.getByRole("button", { name: "Toggle hazard overlay" }).count(), 0);
+  await page.getByRole("button", { name: "Zoom to Jezero Study Area" }).click();
+  await page.locator('.mars-map[data-terrain="ready"]').waitFor();
   assert.equal(await page.locator(".app-shell").getAttribute("data-view"), "map");
   assert.equal(await page.locator(".app-shell").getAttribute("data-stage"), "D");
   assert.equal(await page.locator("#planner-panel").isVisible(), true);

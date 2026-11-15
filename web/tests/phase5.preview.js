@@ -26,6 +26,12 @@ try {
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
   await page.goto(server.resolvedUrls.local[0]);
+  await page.getByRole("button", { name: "Zoom to Jezero Study Area" }).waitFor();
+  assert.equal(await page.locator(".globe-marker").count(), 1);
+  await page.getByRole("button", { name: "Zoom to Jezero Study Area" }).tap();
+  await page.locator('.mars-map[data-terrain="ready"]').waitFor();
+  await page.waitForFunction(() => Number(document.querySelector(".mars-map").dataset.zoom) >= 10);
+  await page.getByText("JEZERO · STUDY AREA", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Route planner", exact: true }).click();
   await page.getByRole("textbox", { name: "Start coordinates" }).fill(formatCoordinates(start));
   await page.getByRole("textbox", { name: "Destination coordinates" }).fill(formatCoordinates(end));
@@ -62,7 +68,7 @@ try {
     assert.ok(chart.y >= 170 && chart.y + chart.height < viewport.height - 90);
   }
   assert.deepEqual(errors, []);
-  console.log("Production preview passed: built Web Worker, real route/metrics/profile, map rendering, automatic save/restore, and route/layout preservation at desktop plus four tablet sizes; no console errors. Imagery uses fixtures.");
+  console.log("Production preview passed: single Jezero globe marker/study-area entry, built Web Worker, real route/metrics/profile, automatic save/restore, and route/layout preservation at desktop plus four tablet sizes; no console errors. Imagery uses fixtures.");
 } finally {
   await browser?.close();
   await new Promise((resolve, reject) => server.httpServer.close((error) => error ? reject(error) : resolve()));

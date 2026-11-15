@@ -96,10 +96,12 @@ from `44139ba` (`latLonToCell`, `cellToLatLon`, `gridBoundsLatLon`).
     bright-left / dark-right, procedural starfield (no asset).
 13. OrbitControls: rotate / pinch / wheel zoom, no pan, distance limits;
     distance < threshold (~1.55R) → 2D-map transition callback.
-14. Markers — Opportunity (−1.95, 354.47), Mawrth Vallis (24, 343),
-    Viking 1 (22.27, 312.05), Pathfinder (19.13, 332.18): yellow center dot,
-    translucent orange disc, white dashed ring, white label above; hidden when
-    back-facing; click → smooth camera focus.
+14. **Updated by user request:** one Jezero Study Area marker at the centre of
+    the current DEM bounds (read from metadata). Remove the previous four sites.
+    Preserve yellow dot, translucent orange disc, white dashed ring and label;
+    hide when back-facing. Initially face Jezero. Click/tap/keyboard activation
+    smoothly rotates/zooms toward it, then enters 2D fitted to the full study
+    footprint, preserving existing app state. Manual globe controls remain.
 
 ## Phase 4 — 2D map (Leaflet)
 
@@ -146,7 +148,7 @@ from `44139ba` (`latLonToCell`, `cellToLatLon`, `gridBoundsLatLon`).
     against `44139ba:design-references/*.png`) and tablet viewport:
     1. Rotate 3D globe (drag)
     2. Zoom 3D globe (wheel/pinch)
-    3. 4 markers visible + labels; back-face hide; click → camera focus
+    3. One Jezero marker + label; back-face hide; click/tap/keyboard → study zoom and fitted 2D entry
     4. Zoom past threshold → 2D transition, view preserved
     5. Map zoom out ≤3 → back to globe (no loop)
     6. Tiles load at z2 / z8 / z11 / z14 (global + study area), no blank/gray tiles
@@ -169,7 +171,7 @@ Do not touch `data-prep/`, `docs/` routing algorithms, or `findRoute` internals.
 
 **Status:** Implementation Phases 1–6 and the Phase 7 verification pass are
 complete, with an unresolved external live-imagery availability limitation.
-28 unit tests, the complete Phase 1–7 browser suite (zero console errors),
+30 unit tests, the complete Phase 1–7 browser suite (zero console errors),
 `npm run build`, production desktop/four-tablet checks and desktop visual
 geometry checks pass. See `web/VERIFICATION.md` for the full coverage/results.
 Map checks cover EPSG:4326 imagery at z2/8/11/14, transparent sparse-tile fallback,
@@ -240,3 +242,15 @@ Added a separate, honest live tile-pipeline report with native-source/fallback
 counts, network failures and nonzero status for unavailable primary sources.
 The live check is degraded, with no app runtime exceptions/broken tiles.
 All artifacts are outside the repo; no dependency changes or commits were made.
+
+**Requested globe-marker revision:** Replaced the four original sites with a
+single metadata-derived Jezero Study Area marker and a Jezero-facing initial
+view. Marker activation animates rotation/zoom, then requests an explicit fit
+to the real study boundary in 2D. Manual rotation/zoom and existing app state
+remain intact. Updated desktop, touch-tablet, reduced-motion, metadata-failure,
+state-preservation and production tests. No protected files were changed.
+
+**Latest overlay-control revision (overrides earlier auto-reveal behavior):**
+Show the hazard/overlay button only in 2D. Enabling/disabling it preserves the
+current map centre and zoom and must not request study-area focus. Use the
+Jezero globe marker or planner pin to navigate; keep header radiation unchanged.

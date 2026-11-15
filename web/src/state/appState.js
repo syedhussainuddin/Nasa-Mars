@@ -74,18 +74,16 @@ export function appReducer(state, action) {
             map: { ...state.viewports.map, zoom: Math.max(MAP_ENTRY_ZOOM, state.viewports.map.zoom) },
           },
         }, "map")
-        : {
-          ...state, hazardsVisible: !state.hazardsVisible,
-          ...(!state.hazardsVisible ? {
-            studyFocusId: state.studyFocusId + 1,
-            studyFocus: { id: state.studyFocusId + 1, reason: "hazard" },
-          } : { studyFocus: null }),
-        };
+        : { ...state, hazardsVisible: !state.hazardsVisible };
     case "ENTER_MAP":
       if (state.view !== "globe" || !validPoint(action.viewport?.center) ||
           !Number.isFinite(action.viewport.distance) || action.viewport.distance <= 0) return state;
       return changeView({
         ...state,
+        ...(action.focusStudyArea ? {
+          studyFocusId: state.studyFocusId + 1,
+          studyFocus: { id: state.studyFocusId + 1, reason: "marker" },
+        } : {}),
         viewports: {
           ...state.viewports,
           globe: action.viewport,

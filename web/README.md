@@ -67,10 +67,17 @@ check; sparse providers can return HTTP 404s without breaking the fallback layer
 ## Globe controls
 
 - Drag to orbit; scroll or pinch to zoom. Panning is disabled.
-- Click a site marker (or focus it with the keyboard and press Enter) to centre
-  that site. Reduced-motion preferences skip the focus animation.
+- The globe has one **Jezero Study Area** marker, positioned at the centre of
+  the actual DEM footprint from its metadata. The initial camera faces Jezero
+  so it is immediately visible; the four previous site markers are removed.
+- Click/tap the marker (or focus it and press Enter) to animate toward Jezero,
+  zoom in, and enter 2D fitted to the full study boundary. The existing marker
+  appearance is retained. Reduced-motion preferences skip the fly-in.
+- Marker entry preserves endpoints, route, hazard state, and any open panel.
+  Metadata-load failure shows an error instead of inventing a marker location.
 - Zoom below 1.55 Mars radii to enter map view, preserving the globe viewport and
-  passing the current centre to the map at zoom 4.
+  passing the current centre to the map at zoom 4. This manual entry remains
+  available anywhere and does not force the marker's Jezero boundary fit.
 - Camera distance is limited to 1.3–6 radii. At the default distance the globe is
   approximately 690px across in the 1440×1024 design viewport.
 - Texture credit is visible in the globe; WebGL/texture/context failures show an
@@ -90,8 +97,8 @@ check; sparse providers can return HTTP 404s without breaking the fallback layer
   green <10°, yellow 10–15°, red >15°. No-data cells remain transparent.
 - **To find the study area:** in 2D, click the pin. It fits the labeled
   `JEZERO · STUDY AREA` rectangle and opens the planner, even if already active.
-  Enabling hazards also brings Jezero into view if coverage is off-screen or
-  too small. A useful close-up inside the study area is left unchanged.
+  The hazard button is visible only in 2D. Toggling it never changes the current
+  centre or zoom, even when Jezero is off-screen; use the pin to locate coverage.
   Hazards are not available globally; the legend indicates when you pan away.
 - Imagery stays stacked from coarse to fine. Failed tiles become transparent;
   a tiled local Mars texture remains beneath the stack as a last-resort fallback.

@@ -17,7 +17,7 @@ export default function RightToolbar({ view, panel, hazardsVisible, dispatch }) 
       title: view === "map" ? "Toggle hazards — coverage is limited to Jezero" : "Switch to 2D map",
       active: view === "map" && hazardsVisible, action: { type: "MAP_TOOL" },
     },
-  ];
+  ].filter((tool) => view === "map" || tool.icon !== "map");
   return (
     <nav className="right-toolbar" aria-label="Navigation tools">
       {tools.map((tool) => (

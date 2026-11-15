@@ -63,22 +63,22 @@ test("map/globe hysteresis preserves state and cannot immediately oscillate", ()
   assert.deepEqual(state.viewports.map.center, { lat: 20, lon: 80 });
 });
 
-test("hazards request visible Jezero coverage only when enabled; active map pin can locate again", () => {
+test("hazard toggle preserves viewport and focus; active map pin can locate again", () => {
   let state = appReducer(createInitialState(), { type: "MAP_TOOL" });
+  const viewport = state.viewports;
   state = appReducer(state, { type: "MAP_TOOL" });
   assert.equal(state.hazardsVisible, true);
-  assert.equal(state.studyFocus.reason, "hazard");
-  const firstId = state.studyFocus.id;
-  state = appReducer(state, { type: "STUDY_FOCUS_COMPLETE", id: firstId });
+  assert.equal(state.viewports, viewport);
   assert.equal(state.studyFocus, null);
   state = appReducer(state, { type: "LOCATE_STUDY_AREA" });
+  const firstId = state.studyFocus.id;
   assert.equal(state.panel, "planner");
   assert.equal(state.studyFocus.reason, "planner");
   const next = appReducer(state, { type: "LOCATE_STUDY_AREA" });
   assert.ok(next.studyFocus.id > state.studyFocus.id);
   assert.equal(next.panel, "planner");
   assert.equal(appReducer(next, { type: "STUDY_FOCUS_COMPLETE", id: firstId }), next);
-  assert.equal(appReducer(next, { type: "MAP_TOOL" }).studyFocus, null);
+  assert.equal(appReducer(next, { type: "MAP_TOOL" }).studyFocus, next.studyFocus);
 });
 
 test("coverage auto-focus reveals off-screen/tiny study areas but preserves useful close-ups", () => {
@@ -106,4 +106,22 @@ test("map padding uses actual tablet controls rather than desktop-width assumpti
   assert.deepEqual(routeFitOptions("planner", 1024, 768, insets).paddingTopLeft, [368, 165]);
   assert.deepEqual(studyFitOptions("planner", 1024, 768, insets).paddingBottomRight, [90, 104]);
   assert.equal(readMapInsets({ closest: () => null }, null), undefined);
+});
+
+test("globe marker requests a full study fit without discarding route, endpoints or open panel", () => {
+  const previous = {
+    ...createInitialState(), panel: "saved", hazardsVisible: true,
+    endpoints: { start: { lat: 18.36, lon: 77.22 }, end: { lat: 18.37, lon: 77.23 } },
+    route: { cells: [{ row: 1, col: 1 }], distanceKm: 0 },
+  };
+  const viewport = { center: { lat: 18.3618, lon: 77.2193 }, distance: 1.52 };
+  const state = appReducer(previous, { type: "ENTER_MAP", viewport, focusStudyArea: true });
+  assert.equal(state.view, "map");
+  assert.equal(state.studyFocus.reason, "marker");
+  assert.equal(state.studyFocus.id, previous.studyFocusId + 1);
+  assert.equal(state.panel, previous.panel);
+  assert.equal(state.route, previous.route);
+  assert.equal(state.endpoints, previous.endpoints);
+  assert.equal(state.hazardsVisible, true);
+  assert.equal(appReducer(createInitialState(), { type: "ENTER_MAP", viewport }).studyFocus, null);
 });

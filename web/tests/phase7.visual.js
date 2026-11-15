@@ -53,7 +53,9 @@ try {
       };
     });
     assert.deepEqual(geometry.header, { x: 408, y: 49, width: 624, height: 118 });
-    assert.deepEqual(geometry.toolbar, { x: 1336, y: 437, width: 40, height: 150 });
+    assert.deepEqual(geometry.toolbar, name === "calculated"
+      ? { x: 1336, y: 437, width: 40, height: 150 }
+      : { x: 1336, y: 464.5, width: 40, height: 95 });
     if (name === "planner") assert.deepEqual(geometry.planner, { x: 60, y: 406, width: 309, height: 212 });
     if (name === "saved") assert.deepEqual(geometry.saved, { x: 60, y: 406, width: 309, height: 212 });
     if (name === "planner") assert.deepEqual(geometry.compactInput, { x: 92, y: 468, width: 244, height: 32 });
@@ -63,7 +65,7 @@ try {
     screenshots.push({ name, current, reference, diff, geometry });
   };
   await page.goto(server.resolvedUrls.local[0]);
-  await page.waitForFunction(() => document.querySelectorAll(".globe-marker:not([hidden])").length === 4);
+  await page.waitForFunction(() => document.querySelectorAll(".globe-marker:not([hidden])").length === 1);
   await page.getByText("SAMPLE DATA", { exact: true }).waitFor();
   await page.evaluate(() => document.fonts.ready);
   await capture("home", "homepage.png");
@@ -127,7 +129,7 @@ try {
     await writeFile(join(directory, entry.diff), Buffer.from(image, "base64"));
     entry.statistics = statistics;
   }
-  const note = "Geometry assertions pass. Pixel differences are diagnostic, NOT a pixel-perfect approval: live/local scientific imagery, real sample/route values, geographically placed globe sites, procedural stars, provenance badges/credits and the requested cyan destination intentionally differ from the illustrative references.";
+  const note = "Geometry assertions pass. Pixel differences are diagnostic, NOT a pixel-perfect approval: the user-requested single Jezero marker/initial view, live/local scientific imagery, real sample/route values, procedural stars, provenance badges/credits and the cyan destination intentionally differ from the illustrative references.";
   await writeFile(join(directory, "visual-comparison.json"), JSON.stringify({ referenceCommit: "44139ba", note, screenshots }, null, 2));
   await writeFile(join(directory, "visual-comparison.html"), `<!doctype html><meta charset="UTF-8"><title>Mars visual review</title>
 <style>body{background:#0d0d12;color:#fff;font:16px system-ui;margin:24px}section{margin:32px 0}.images{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}img{width:100%}figcaption{margin:8px}figure{margin:0}p{max-width:1100px;line-height:1.5}</style>

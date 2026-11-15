@@ -72,7 +72,7 @@ export async function checkPhase7(page, url) {
 
   // The merged local image must be identified as the displayed source.
   await page.goto(url);
-  await page.getByRole("button", { name: "Switch to 2D map" }).click();
+  await page.getByRole("button", { name: "Zoom to Jezero Study Area" }).click();
   await page.locator('.mars-map[data-terrain="ready"]').waitFor();
   if (existsSync(new URL("../public/data/jezero_ortho.png", import.meta.url))) {
     await page.locator(".local-ortho").waitFor();

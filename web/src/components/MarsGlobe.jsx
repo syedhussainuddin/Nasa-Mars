@@ -3,24 +3,29 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import {
   DEFAULT_CENTER, DEFAULT_DISTANCE, GLOBE_RADIUS, MIN_DISTANCE, MAX_DISTANCE,
-  MAP_TRANSITION_DISTANCE, MARS_SITES, locationToVector, vectorToLocation,
+  MAP_TRANSITION_DISTANCE, locationToVector, vectorToLocation,
   isSiteVisible, fieldOfView,
 } from "../globe/globeMath.js";
+import { fetchJson } from "../data/loadGrid.js";
+import { studySiteFromMetadata } from "../globe/studySite.js";
 
 export default function MarsGlobe({ viewport, onViewportChange, onEnterMap }) {
   const host = useRef(null);
   const markers = useRef(new Map());
   const focusSite = useRef(null);
+  const sitePositions = useRef([]);
   const initialViewport = useRef(viewport);
   const callbacks = useRef({ onViewportChange, onEnterMap });
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
+  const [sites, setSites] = useState([]);
+  const [siteError, setSiteError] = useState("");
 
   useEffect(() => { callbacks.current = { onViewportChange, onEnterMap }; }, [onViewportChange, onEnterMap]);
 
   useEffect(() => {
     const element = host.current;
-    let active = true, frame = 0, focus = null, transitioned = false;
+    let active = true, frame = 0, focus = null, transitioned = false, enteringStudyArea = false;
     let renderer;
     try {
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -86,9 +91,15 @@ export default function MarsGlobe({ viewport, onViewportChange, onEnterMap }) {
         }
       },
     );
-    const sites = MARS_SITES.map((site) => {
+    fetchJson("jezero_grid_meta.json").then((meta) => {
+      if (!active) return;
+      const site = studySiteFromMetadata(meta);
       const point = locationToVector(site);
-      return { ...site, position: new THREE.Vector3(point.x, point.y, point.z) };
+      sitePositions.current = [{ ...site, position: new THREE.Vector3(point.x, point.y, point.z) }];
+      setSites([site]);
+      setSiteError("");
+    }).catch(() => {
+      if (active) setSiteError("The Jezero study-area marker could not be loaded. Please reload and try again.");
     });
     let width = 1, height = 1;
     const resize = () => {
@@ -112,14 +123,14 @@ export default function MarsGlobe({ viewport, onViewportChange, onEnterMap }) {
       distance: camera.position.length(),
     });
     const publishViewport = () => callbacks.current.onViewportChange?.(currentViewport());
-    const onControlStart = () => { focus = null; };
+    const onControlStart = () => { focus = null; enteringStudyArea = false; };
     controls.addEventListener("start", onControlStart);
     controls.addEventListener("end", publishViewport);
 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     focusSite.current = (id) => {
-      const site = sites.find((item) => item.id === id);
-      if (!site || transitioned) return;
+      const site = sitePositions.current.find((item) => item.id === id);
+      if (!site || transitioned || focus) return;
       // Flush any remaining damping before taking over camera movement.
       controls.enableDamping = false;
       controls.update();
@@ -130,8 +141,9 @@ export default function MarsGlobe({ viewport, onViewportChange, onEnterMap }) {
         from,
         rotation: new THREE.Quaternion().setFromUnitVectors(from, to),
         distance: camera.position.length(),
+        targetDistance: MAP_TRANSITION_DISTANCE - 0.03,
         start: performance.now(),
-        duration: reducedMotion.matches ? 0 : 850,
+        duration: reducedMotion.matches ? 0 : 1200,
       };
       element.dataset.focusSite = site.id;
       element.dataset.focusing = "true";
@@ -146,10 +158,12 @@ export default function MarsGlobe({ viewport, onViewportChange, onEnterMap }) {
         const t = focus.duration ? Math.min(1, (time - focus.start) / focus.duration) : 1;
         const ease = t * t * (3 - 2 * t);
         interpolation.identity().slerp(focus.rotation, ease);
-        camera.position.copy(focus.from).applyQuaternion(interpolation).multiplyScalar(focus.distance);
+        const distance = THREE.MathUtils.lerp(focus.distance, focus.targetDistance, ease);
+        camera.position.copy(focus.from).applyQuaternion(interpolation).multiplyScalar(distance);
         camera.lookAt(0, 0, 0);
         if (t === 1) {
           focus = null;
+          enteringStudyArea = true;
           controls.enabled = true;
           controls.enableDamping = true;
           controls.update();
@@ -165,7 +179,7 @@ export default function MarsGlobe({ viewport, onViewportChange, onEnterMap }) {
       sunlight.position.copy(cameraDirection).multiplyScalar(1.8).addScaledVector(right, -3).addScaledVector(up, 2);
       renderer.render(scene, camera);
 
-      for (const site of sites) {
+      for (const site of sitePositions.current) {
         const marker = markers.current.get(site.id);
         if (!marker) continue;
         projected.copy(site.position).project(camera);
@@ -182,11 +196,13 @@ export default function MarsGlobe({ viewport, onViewportChange, onEnterMap }) {
       element.dataset.distance = view.distance.toFixed(4);
       element.dataset.centerLat = view.center.lat.toFixed(4);
       element.dataset.centerLon = view.center.lon.toFixed(4);
-      if (!transitioned && view.distance < MAP_TRANSITION_DISTANCE) {
+      // Finish the marker's rotation/zoom before handing off. Manual wheel/
+      // pinch entry remains automatic and does not force a study-area fit.
+      if (!transitioned && !focus && view.distance < MAP_TRANSITION_DISTANCE) {
         transitioned = true;
         controls.enabled = false;
         callbacks.current.onViewportChange?.(view);
-        callbacks.current.onEnterMap?.(view);
+        callbacks.current.onEnterMap?.(view, { focusStudyArea: enteringStudyArea });
       }
       frame = requestAnimationFrame(animate);
     };
@@ -205,6 +221,7 @@ export default function MarsGlobe({ viewport, onViewportChange, onEnterMap }) {
       cancelAnimationFrame(frame);
       observer.disconnect();
       focusSite.current = null;
+      sitePositions.current = [];
       controls.removeEventListener("start", onControlStart);
       controls.removeEventListener("end", publishViewport);
       controls.dispose();
@@ -221,19 +238,19 @@ export default function MarsGlobe({ viewport, onViewportChange, onEnterMap }) {
   return (
     <section ref={host} className="mars-globe" aria-label="Mars globe" data-status={status}>
       <div className="globe-markers">
-        {MARS_SITES.map((site) => (
+        {sites.map((site) => (
           <button key={site.id} ref={(element) => {
             if (element) markers.current.set(site.id, element);
             else markers.current.delete(site.id);
           }} type="button" className="globe-marker" data-site={site.id} hidden
-            aria-label={`Focus on ${site.name}`} onClick={() => focusSite.current?.(site.id)}>
+            aria-label={`Zoom to ${site.name}`} onClick={() => focusSite.current?.(site.id)}>
             <span className="globe-marker-label">{site.name}</span>
             <span className="globe-marker-dot" />
           </button>
         ))}
       </div>
       {status === "loading" && <p className="globe-message" role="status">Loading Mars…</p>}
-      {error && <p className="globe-message globe-error" role="alert">{error}</p>}
+      {(error || siteError) && <p className="globe-message globe-error" role="alert">{error || siteError}</p>}
       <a className="texture-credit" href="https://www.solarsystemscope.com/textures/"
         target="_blank" rel="noreferrer">Mars texture: Solar System Scope · CC BY 4.0</a>
     </section>

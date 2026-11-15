@@ -15,7 +15,7 @@ was created. Browser checks used Playwright with installed Chrome/Chromium
 
 | Check | Result |
 | --- | --- |
-| `npm test` | 28 passing unit tests |
+| `npm test` | 30 passing unit tests after the requested Jezero-marker update |
 | `npm run test:browser` | All desktop, tablet, regression and failure-path checks pass; zero console errors |
 | `npm run build` | Production build succeeds |
 | `node tests/phase5.preview.js` | Built Worker, real route/metrics/profile, save/restore and four tablet sizes pass; zero console errors |
@@ -33,14 +33,14 @@ are test-only fixtures; protected files on disk remain unchanged.
 | --- | --- | --- |
 | 1 | Globe rotation | Drag changes camera centre without panning |
 | 2 | Globe zoom | Wheel and native two-touch pinch; minimum/maximum distance |
-| 3 | Four sites | Labels, back-face hiding, click/keyboard focus, reduced motion |
+| 3 | Single Jezero marker | Actual DEM centre, old sites removed, animated click/tap/keyboard study-area entry, back-face hiding, reduced motion |
 | 4 | Globe → map | Close-in camera entry, current centre and open panel retained |
 | 5 | Map → globe | Exit at z3, hysteresis, no immediate loop, state retained |
 | 6 | Imagery | EPSG:4326 stack at z2/8/11/14; sparse/slow/stalled fallback; local ortho decoding/alignment |
 | 7 | Endpoints | Click-cycle, typed inputs, centred dots, cyan destination, details from selected cells |
 | 8 | Calculation | Real Worker, spinner/disabled button, expanded panel and exact metric wiring |
 | 9 | Errors | Missing/invalid/outside/no-data/blocked/disconnected terrain, failed Worker and timeout; no partial results |
-| 10 | Hazards | Real raster, unchanged green/yellow/red classes, legend, automatic Jezero reveal and active-pin relocation |
+| 10 | Hazards | Real raster, unchanged green/yellow/red classes, 2D-only control, viewport-preserving toggle and active-pin relocation |
 | 11 | Profile | Real elevations/distances, axes/grid, empty/flat/single-point handling |
 | 12 | Saved routes | Automatic save, deduplication, current-grid recalculation, globe-to-map restoration, corruption/quota handling |
 | 13 | Header/toolbar | Sample provenance, conversions, source information, keyboard info control and active states |
@@ -58,7 +58,7 @@ statistics are generated outside the repository.
 Verified desktop geometry:
 
 - Header: 624×118 at (408, 49).
-- Toolbar: three 40×40 controls, 15px gaps, 64px from the right.
+- Toolbar: 40×40 controls, 15px gaps, 64px from the right; two in 3D and three in 2D.
 - Compact planner/saved panel: 309×212 at (60, 406).
 - Expanded planner: 364×686 at (60, 222).
 - Approximately 690px globe; locally hosted Barlow; specified palette.
@@ -68,7 +68,7 @@ Corrected the source readout to identify the local Jezero orthomosaic when it
 is actually visible.
 
 **Not a zero-pixel-difference reproduction.** The scientific/local grayscale map,
-real route and sample values, geographically placed sites, procedural starfield,
+real route and sample values, user-requested single Jezero marker/initial view, procedural starfield,
 provenance/attribution text, hazard-coverage guidance and user-requested cyan
 destination differ from illustrative reference pixels. The full-scene image
 differences are diagnostic, not an invented pixel-perfect approval.
@@ -100,6 +100,24 @@ high-detail imagery. Native grayscale is expected; fallback does not create
 missing resolution. Hazards exist only within the supplied Jezero DEM.
 Conditions are explicitly sample data, and terrain risk is an estimate, not
 certified rover-safety guidance.
+
+## Subsequent user-requested globe update
+
+The previous four site markers have been replaced by one Jezero Study Area
+marker with the same visual treatment. Its position comes from the current
+DEM metadata, not a guessed crater coordinate. Clicking/tapping it performs a
+smooth rotate/zoom, then fits the actual study footprint in 2D. The default
+camera faces Jezero; free rotation and manual wheel/pinch transitions remain.
+
+Updated checks verify exactly one marker, removal of old sites, metadata
+positioning/failure, normal and reduced-motion keyboard entry, touch entry at
+all four tablet sizes, preserved app state and production-built behavior.
+This requested change supersedes the original four-marker illustration.
+
+The subsequent overlay-control request hides its button in 3D and removes
+automatic study-area navigation from hazard toggling. The current map centre
+and zoom are preserved. Jezero marker/pin navigation and the header radiation
+reading are unchanged.
 
 ## Reproduce and inspect artifacts
 

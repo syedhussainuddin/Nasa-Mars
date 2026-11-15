@@ -295,7 +295,7 @@ export default function MarsMap({
       (insets.left + element.clientWidth - insets.right) / 2,
       (insets.top + element.clientHeight - insets.bottom) / 2,
     ]) : map.getCenter();
-    if (studyFocus.reason === "planner" || needsStudyFocus({
+    if (studyFocus.reason === "planner" || studyFocus.reason === "marker" || needsStudyFocus({
       centerInside: bounds.contains(center),
       width: Math.abs(ne.x - sw.x), height: Math.abs(ne.y - sw.y),
     })) {

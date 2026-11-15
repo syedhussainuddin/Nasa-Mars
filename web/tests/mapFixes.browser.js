@@ -6,15 +6,29 @@ import { join } from "node:path";
 export async function checkMapFixes(page, url) {
   await page.goto(url);
   await page.locator('.mars-globe[data-status="ready"]').waitFor();
+  // Move away from the new Jezero-facing default to retain the off-screen
+  // coverage regression that originally affected arbitrary globe entry.
+  await page.mouse.move(500, 850);
+  await page.mouse.down();
+  await page.mouse.move(1100, 850, { steps: 24 });
+  await page.mouse.up();
+  await page.waitForFunction(() => Number(document.querySelector(".mars-globe").dataset.centerLon) < 0);
   await page.mouse.move(720, 850);
   await page.mouse.wheel(0, -12000);
   await page.locator('.mars-map[data-terrain="ready"]').waitFor();
   assert.equal(Number(await page.locator(".mars-map").getAttribute("data-zoom")), 4);
   assert.ok(Number(await page.locator(".mars-map").getAttribute("data-center-lon")) < 0);
 
-  // This reproduces the reported path: globe zoom enters far from Jezero,
-  // then the hazard button must reveal the actual raster, not just its legend.
+  // Toggling hazards away from Jezero must not move the user's map.
+  const beforeToggle = await page.locator(".mars-map").evaluate((map) => ({
+    zoom: map.dataset.zoom, lat: map.dataset.centerLat, lon: map.dataset.centerLon,
+  }));
   await page.getByRole("button", { name: "Toggle hazard overlay" }).click();
+  assert.deepEqual(await page.locator(".mars-map").evaluate((map) => ({
+    zoom: map.dataset.zoom, lat: map.dataset.centerLat, lon: map.dataset.centerLon,
+  })), beforeToggle);
+  await page.getByText("Jezero hazards off-screen or too small — use the pin to locate", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Route planner", exact: true }).click();
   await page.waitForFunction(() => Number(document.querySelector(".mars-map").dataset.zoom) >= 10);
   await page.getByText("Hazards: Jezero study area only", { exact: true }).waitFor();
   await page.locator(".hazard-raster").waitFor();
