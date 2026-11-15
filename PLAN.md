@@ -6,6 +6,31 @@ route planner, saved routes, hazard overlay, route summary + elevation profile).
 
 ---
 
+## Ownership and collaboration rules (override conflicting steps below)
+
+- Do not edit root `README.md` or `.gitignore` (Hussain), `LICENSE` (leave
+  unchanged), `docs/` (Hussain/Abdullah), or `data-prep/` (Hussain).
+- `data/raw/` is local only: do not modify or commit it.
+- All of `web/public/data/` is off limits, including grid, ortho, metadata,
+  and conditions files.
+- `web/src/data/loadGrid.js` belongs to Hussain and is off limits.
+- All of `web/src/routing/` belongs to Hussain/Zayem and is off limits.
+- The frontend developer owns the remaining frontend files under `web/`,
+  including components, styles, entry points, and Vite configuration.
+- Only the frontend developer edits `web/package.json`. Anyone else needing
+  a library asks the frontend developer to add it. Generate the lockfile with npm.
+- If a protected file needs a change, ask its owner in the group chat first.
+  If group-chat access is unavailable, give the user a request to forward and
+  wait for approval. Do not silently edit protected files.
+
+Phase 1 predates these ownership rules and changed `conditions_sample.json`,
+`loadGrid.js`, `coordinates.js`, `planRoute.js`, and `routeMetrics.js`.
+Their owners must review those existing changes; do not automatically revert or
+further modify them. Future frontend work must use adapters in frontend-owned
+files where possible, rather than following conflicting edits in this plan.
+
+---
+
 ## 0. Verified research (complete — do not re-verify)
 
 **Imagery stack (every tile URL live-tested, 200 confirmed):**
@@ -142,4 +167,45 @@ loading indicators, validation messages, error messages allowed beyond the desig
 Dependencies limited to the allowed list. No commits unless explicitly asked.
 Do not touch `data-prep/`, `docs/` routing algorithms, or `findRoute` internals.
 
-**Status:** plan only — coding starts on approval.
+**Status:** Phases 1–5 complete. Phase 5 verified with 27 passing unit tests,
+Phase 1–5 browser checks (zero console errors), `npm run build`, and a production
+preview check of the built Worker/calculation/summary/profile/save flow.
+Map checks cover EPSG:4326 imagery at z2/8/11/14, transparent sparse-tile fallback,
+endpoint click-cycle/validation, hazards, real-route drawing/fit, optional local
+image handling, terrain-load failure, and globe/map hysteresis/state preservation.
+Tile failure/coverage tests use deterministic fixtures; a separate live smoke
+check also loaded CTX imagery with no runtime errors. This does not guarantee
+all remote tiles/providers are continuously available.
+Screenshots are stored in the approved temporary directory, outside the repo.
+The Calculate/Recalculate action, route summary/profile, and saved-route panels
+are implemented. Responsive refinement (Phase 6) and final comprehensive visual/
+behavior verification (Phase 7) remain. The optional ortho image is absent; its presence is detected at
+Vite startup/build, so restart/rebuild after the data owner supplies it.
+No protected files were changed during Phases 2–5. Ownership rules above apply
+to all remaining work. No commits without an explicit request.
+
+**Phase 4 correction (before Phase 5):** User-reported off-screen hazards and
+mixed orange/gray tile patchwork were addressed in frontend-owned files.
+The map pin now fits and labels Jezero even when the planner is already active;
+hazard activation reveals off-screen/tiny coverage without disturbing useful
+close-ups. Coverage limitations are visible in the legend. Imagery priority no
+longer lets coarse Jezero CTX obscure global HiRISE; new native levels load as
+batches, stalled tiles time out, and only coarse color fallback is desaturated
+at detail zooms to avoid orange gaps among native grayscale imagery.
+Regression checks cover the reported globe-entry path, visible raster/rectangle,
+active-pin navigation, partial/slow/stalled providers, and preserved endpoints.
+The separate live check verifies visible Jezero hazards and displayed detail,
+not merely that a tile URL loaded. Native grayscale and sparse detail coverage
+remain source limitations, not fabricated color or global hazard coverage.
+
+**Phase 5 implementation:** Typed and map-selected coordinates are validated
+against the DEM and show cell elevation/slope. The existing route finder runs
+unchanged through a frontend-owned cancellable Worker, with loading and timeout/
+error handling. Successful routes populate the summary and SVG profile, switch
+to the map, and auto-save. Editing invalidates old results; failed routes display
+no partial metrics/geometry. Saved rows recalculate from endpoints, fit/redraw
+the map, and reopen the expanded planner. Duplicate cell pairs update an entry;
+corrupt data is reported and unavailable storage has a session-only fallback.
+Checks cover typed/map-selected calculation, spinner, exact metric wiring,
+profile/empty/flat/single-point states, save/dedup/restore from the globe, blocked
+route failure, edit cancellation, corruption, and blocked/quota-limited storage.

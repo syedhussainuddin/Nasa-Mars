@@ -1,13 +1,9 @@
 // Task 3: convert between map coordinates (lat/lon) and elevation-grid cells.
 //
-// Conventions (confirmed from the DEM metadata, see docs/data-sources.md):
-//   - Points are plain decimal degrees: { lat: 18.3, lon: 77.2 }
-//   - Longitude is east-positive. Negative longitudes are accepted and wrapped
-//     into 0..360.
-//   - The DEM uses an Equirectangular projection on a Mars sphere (radius
-//     3,396,190 m), central meridian 0, standard parallel 0. Because the
-//     reference is a sphere, planetocentric and planetographic latitude are the
-//     same thing here.
+// Contract (from the PRD): coordinates are plain numeric decimal degrees,
+//   { lat: 18.38, lon: 77.50 }
+// Spherical Mars datum: planetocentric and planetographic latitudes coincide.
+// Longitude is east-positive (0..360), as documented in docs/data-sources.md.
 //
 // The grid metadata comes from web/public/data/jezero_grid_meta.json
 // (made by data-prep/crop_dem.py): meta.bounds {xmin,ymin,xmax,ymax} in metres,
@@ -35,13 +31,16 @@ export function xyToLatLon({ x, y }) {
  * @returns {{row:number, col:number} | null}  null if outside the grid
  */
 export function latLonToCell(point, meta) {
-  const { x, y } = latLonToXY(point);
-  const { xmin, ymin, xmax, ymax } = meta.bounds;
+  if (!Number.isFinite(point?.lat) || !Number.isFinite(point?.lon)) return null;
+  const { radius, parallel, meridian } = projection(meta);
+  const x = radius * (point.lon - meridian) * Math.PI / 180 * Math.cos(parallel);
+  const y = radius * point.lat * Math.PI / 180;
+  const { xmin, xmax, ymin, ymax } = meta.bounds;
   if (x < xmin || x >= xmax || y <= ymin || y > ymax) return null;
-  const col = Math.floor(((x - xmin) / (xmax - xmin)) * meta.width);
-  const row = Math.floor(((ymax - y) / (ymax - ymin)) * meta.height);
-  if (row < 0 || row >= meta.height || col < 0 || col >= meta.width) return null;
-  return { row, col };
+  const col = Math.floor((x - xmin) / meta.cell_size.x);
+  const row = Math.floor((ymax - y) / meta.cell_size.y);
+  return row >= 0 && row < meta.height && col >= 0 && col < meta.width
+    ? { row, col } : null;
 }
 
 /**
@@ -51,19 +50,34 @@ export function latLonToCell(point, meta) {
  * @returns {{lat:number, lon:number}}
  */
 export function cellToLatLon(cell, meta) {
-  const { xmin, ymin, xmax, ymax } = meta.bounds;
-  const x = xmin + ((cell.col + 0.5) / meta.width) * (xmax - xmin);
-  const y = ymax - ((cell.row + 0.5) / meta.height) * (ymax - ymin);
-  return xyToLatLon({ x, y });
+  if (!Number.isInteger(cell?.row) || !Number.isInteger(cell?.col) ||
+      cell.row < 0 || cell.col < 0 || cell.row >= meta.height || cell.col >= meta.width) {
+    throw new Error('Cell is outside the study area.');
+  }
+  return projectedToLatLon(
+    meta.bounds.xmin + (cell.col + 0.5) * meta.cell_size.x,
+    meta.bounds.ymax - (cell.row + 0.5) * meta.cell_size.y, meta,
+  );
 }
 
-/**
- * Lat/lon edges of the whole grid, handy for fitting the map view or drawing
- * the study-area rectangle.
- * @returns {{south:number, west:number, north:number, east:number}}
- */
+function projection(meta) {
+  const crs = meta.crs || '';
+  if (!crs.includes('Equirectangular')) throw new Error('Unsupported terrain projection.');
+  const radius = Number(crs.match(/SPHEROID\["[^"]+",([\d.]+)/)?.[1]);
+  const parallel = Number(crs.match(/PARAMETER\["standard_parallel_1",([-\d.]+)/)?.[1] ?? 0) * Math.PI / 180;
+  const meridian = Number(crs.match(/PARAMETER\["central_meridian",([-\d.]+)/)?.[1] ?? 0);
+  if (!(radius > 0)) throw new Error('Mars radius is missing from terrain metadata.');
+  return { radius, parallel, meridian };
+}
+
+function projectedToLatLon(x, y, meta) {
+  const { radius, parallel, meridian } = projection(meta);
+  return { lat: y / radius * 180 / Math.PI, lon: x / (radius * Math.cos(parallel)) * 180 / Math.PI + meridian };
+}
+
+/** Leaflet bounds at the outer edges, not the centres of corner cells. */
 export function gridBoundsLatLon(meta) {
-  const sw = xyToLatLon({ x: meta.bounds.xmin, y: meta.bounds.ymin });
-  const ne = xyToLatLon({ x: meta.bounds.xmax, y: meta.bounds.ymax });
-  return { south: sw.lat, west: sw.lon, north: ne.lat, east: ne.lon };
+  const sw = projectedToLatLon(meta.bounds.xmin, meta.bounds.ymin, meta);
+  const ne = projectedToLatLon(meta.bounds.xmax, meta.bounds.ymax, meta);
+  return [[sw.lat, sw.lon], [ne.lat, ne.lon]];
 }
