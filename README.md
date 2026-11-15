@@ -1,2 +1,3 @@
 # mars-mission-planner
 Hazard-aware Mars mission planner: click two points on a map of Mars and get the safest route, a terrain slope hazard map, and real rover conditions. Built for the NASA Space Apps Challenge.
+Use of Super Intelligence tools: AI assistants (Claude, and another AI coding assistant) helped us plan the project and write parts of the code, data-preparation scripts, documentation and slide text. The sample conditions data (conditions_sample.json) was generated with AI help and is labelled as sample data. All terrain and image data come from USGS/NASA HiRISE products. We tested and reviewed the results ourselves.
