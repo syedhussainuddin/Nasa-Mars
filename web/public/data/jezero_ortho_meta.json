@@ -1,0 +1,16 @@
+{
+  "source_file": "MSR_hirise_soc_003_Orthomosaic_0.25m_Eqc_latTs0_lon0_First_NoBlend.tif",
+  "bounds": {
+    "xmin": 4573152,
+    "ymin": 1084394,
+    "xmax": 4581152,
+    "ymax": 1092394
+  },
+  "width": 1200,
+  "height": 1200,
+  "source_cell_size": {
+    "x": 0.25,
+    "y": 0.25
+  },
+  "note": "Same bounds as the elevation grid; north edge is the top of the image."
+}
