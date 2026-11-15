@@ -50,6 +50,7 @@
   --toolbar-right: 64px;
   --toolbar-button: 40px;
   --toolbar-gap: 15px;
+  --panel-bottom-clearance: 24px;
 }
 
 * { box-sizing: border-box; }
@@ -168,8 +169,8 @@ button:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 5px
 .hazard-coverage { margin: 0 0 7px; text-align: center; font-size: 12px; white-space: nowrap; }
 .hazard-key .hazard-legend { position: static; justify-content: center; transform: none; padding: 0; border: 0; border-radius: 0; background: none; }
 
-.planner-panel { height: auto; min-height: var(--panel-height); max-height: calc(100% - var(--panel-top) - 24px); overflow-y: auto; }
-.planner-panel.side-panel-expanded { height: var(--expanded-panel-height); max-height: calc(100% - var(--expanded-panel-top) - 24px); padding: 24px 20px; }
+.planner-panel { height: auto; min-height: var(--panel-height); max-height: calc(100% - var(--panel-top) - var(--panel-bottom-clearance)); overflow-y: auto; }
+.planner-panel.side-panel-expanded { height: var(--expanded-panel-height); max-height: calc(100% - var(--expanded-panel-top) - var(--panel-bottom-clearance)); padding: 24px 20px; }
 .planner-panel h2, .saved-routes-panel h2 { color: var(--color-text); }
 .planner-panel form { margin-top: 10px; }
 .endpoint-fields { display: grid; gap: 8px; }
@@ -223,3 +224,55 @@ button:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 5px
 .saved-route-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .saved-route-distance { flex-shrink: 0; color: var(--color-muted); }
 .saved-empty { color: var(--color-muted); font-size: 13px; }
+
+/* Same crown, side panels, toolbar and palette; only spacing/widths change.
+   Scroll long results inside the panel rather than outside the map viewport. */
+@media (max-width: 1199px), (max-height: 820px) {
+  :root {
+    --header-top: 24px;
+    --header-width: min(624px, calc(100vw - 48px));
+    --panel-left: 24px;
+    --panel-top: clamp(220px, 42svh, 360px);
+    --panel-width: 292px;
+    --expanded-panel-top: 170px;
+    --expanded-panel-width: 320px;
+    --panel-bottom-clearance: 104px;
+    --toolbar-right: 24px;
+    --globe-diameter: 560px;
+  }
+  .app-shell { min-height: 0; }
+  .info-button { right: calc(25% + 8px); }
+  .side-panel { padding: 16px 18px; }
+  .side-panel h2 { font-size: 18px; line-height: 24px; }
+  .planner-panel.side-panel-expanded { padding: 18px; }
+  .planner-panel, .saved-routes-panel { touch-action: pan-y; overscroll-behavior: contain; }
+  .endpoint-input-box { min-height: 36px; }
+  .endpoint-input-box input { height: 22px; font-size: 14px; line-height: 22px; }
+  .endpoint-details { line-height: 12px; }
+  .side-panel-expanded .endpoint-input-box input { font-size: 13px; }
+  .side-panel-expanded .endpoint-details { font-size: 11px; }
+  .route-metrics { gap: 8px; }
+  .route-metrics dt { font-size: 12px; }
+  .route-metrics dd { font-size: 14px; }
+  .saved-routes-panel { max-height: calc(100% - var(--panel-top) - var(--panel-bottom-clearance)); }
+  .imagery-status { left: var(--panel-left); max-width: 280px; font-size: 11px; }
+  .hazard-key { left: auto; right: var(--toolbar-right); max-width: calc(100% - var(--panel-left) - 328px); transform: none; padding: 8px 10px; }
+  .hazard-coverage { white-space: normal; line-height: 16px; }
+  .hazard-legend { gap: 12px; }
+  .map-message { width: min(400px, calc(100% - 80px)); bottom: 110px; }
+}
+
+/* Reference calibration for compact desktop cards: headings align with the
+   input/row text, while endpoint icons sit just to their left. Tablet spacing
+   and the expanded results card retain their separately verified dimensions. */
+@media (min-width: 1200px) and (min-height: 821px) {
+  .planner-panel:not(.side-panel-expanded) h2,
+  .saved-routes-panel h2 { margin-left: 12px; transform: translateY(2px); }
+  .planner-panel:not(.side-panel-expanded) form { margin-top: 16px; }
+  .planner-panel:not(.side-panel-expanded) .endpoint-fields { position: relative; left: -12px; }
+  .planner-panel:not(.side-panel-expanded) .endpoint-input-box:has(.endpoint-details) input { height: 16px; line-height: 16px; }
+  .planner-panel:not(.side-panel-expanded) .endpoint-details { line-height: 10px; }
+  .planner-panel:not(.side-panel-expanded) .calculate-button { margin-top: 23px; padding-inline: 11px; }
+  .saved-route-list { margin: 16px 12px 0; }
+  .saved-route-row { min-height: 32px; }
+}

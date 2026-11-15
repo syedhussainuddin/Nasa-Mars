@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { cellToLatLon } from "../src/routing/coordinates.js";
-import { selectMapEndpoint, routeLatLngs, routeFitOptions, studyFitOptions, needsStudyFocus, wrapLongitude } from "../src/map/mapHelpers.js";
+import { selectMapEndpoint, routeLatLngs, routeFitOptions, studyFitOptions, needsStudyFocus, readMapInsets, wrapLongitude } from "../src/map/mapHelpers.js";
 import { appReducer, createInitialState } from "../src/state/appState.js";
 import { MAP_TRANSITION_DISTANCE } from "../src/globe/globeMath.js";
 
@@ -63,22 +63,22 @@ test("map/globe hysteresis preserves state and cannot immediately oscillate", ()
   assert.deepEqual(state.viewports.map.center, { lat: 20, lon: 80 });
 });
 
-test("hazards request visible Jezero coverage only when enabled; active map pin can locate again", () => {
+test("hazard toggle preserves viewport and focus; active map pin can locate again", () => {
   let state = appReducer(createInitialState(), { type: "MAP_TOOL" });
+  const viewport = state.viewports;
   state = appReducer(state, { type: "MAP_TOOL" });
   assert.equal(state.hazardsVisible, true);
-  assert.equal(state.studyFocus.reason, "hazard");
-  const firstId = state.studyFocus.id;
-  state = appReducer(state, { type: "STUDY_FOCUS_COMPLETE", id: firstId });
+  assert.equal(state.viewports, viewport);
   assert.equal(state.studyFocus, null);
   state = appReducer(state, { type: "LOCATE_STUDY_AREA" });
+  const firstId = state.studyFocus.id;
   assert.equal(state.panel, "planner");
   assert.equal(state.studyFocus.reason, "planner");
   const next = appReducer(state, { type: "LOCATE_STUDY_AREA" });
   assert.ok(next.studyFocus.id > state.studyFocus.id);
   assert.equal(next.panel, "planner");
   assert.equal(appReducer(next, { type: "STUDY_FOCUS_COMPLETE", id: firstId }), next);
-  assert.equal(appReducer(next, { type: "MAP_TOOL" }).studyFocus, null);
+  assert.equal(appReducer(next, { type: "MAP_TOOL" }).studyFocus, next.studyFocus);
 });
 
 test("coverage auto-focus reveals off-screen/tiny study areas but preserves useful close-ups", () => {
@@ -87,4 +87,41 @@ test("coverage auto-focus reveals off-screen/tiny study areas but preserves usef
   assert.equal(needsStudyFocus({ centerInside: true, width: 400, height: 400 }), false);
   assert.equal(needsStudyFocus({ centerInside: true, width: 5000, height: 5000 }), false);
   assert.equal(studyFitOptions("planner", 1440, 1024).maxZoom, 12);
+});
+
+test("map padding uses actual tablet controls rather than desktop-width assumptions", () => {
+  const bounds = {
+    "#planner-panel": { right: 344, width: 320, height: 494 },
+    ".conditions-header": { bottom: 142, width: 624, height: 118 },
+    ".right-toolbar": { left: 960, width: 40, height: 150 },
+    ".imagery-status": { top: 680, width: 280, height: 64 },
+  };
+  const root = { querySelector: (selector) => bounds[selector] ? { getBoundingClientRect: () => bounds[selector] } : null };
+  const element = {
+    closest: () => root,
+    getBoundingClientRect: () => ({ left: 0, top: 0, right: 1024, bottom: 768 }),
+  };
+  const insets = readMapInsets(element, "planner");
+  assert.deepEqual(insets, { left: 368, top: 165, right: 90, bottom: 104 });
+  assert.deepEqual(routeFitOptions("planner", 1024, 768, insets).paddingTopLeft, [368, 165]);
+  assert.deepEqual(studyFitOptions("planner", 1024, 768, insets).paddingBottomRight, [90, 104]);
+  assert.equal(readMapInsets({ closest: () => null }, null), undefined);
+});
+
+test("globe marker requests a full study fit without discarding route, endpoints or open panel", () => {
+  const previous = {
+    ...createInitialState(), panel: "saved", hazardsVisible: true,
+    endpoints: { start: { lat: 18.36, lon: 77.22 }, end: { lat: 18.37, lon: 77.23 } },
+    route: { cells: [{ row: 1, col: 1 }], distanceKm: 0 },
+  };
+  const viewport = { center: { lat: 18.3618, lon: 77.2193 }, distance: 1.52 };
+  const state = appReducer(previous, { type: "ENTER_MAP", viewport, focusStudyArea: true });
+  assert.equal(state.view, "map");
+  assert.equal(state.studyFocus.reason, "marker");
+  assert.equal(state.studyFocus.id, previous.studyFocusId + 1);
+  assert.equal(state.panel, previous.panel);
+  assert.equal(state.route, previous.route);
+  assert.equal(state.endpoints, previous.endpoints);
+  assert.equal(state.hazardsVisible, true);
+  assert.equal(appReducer(createInitialState(), { type: "ENTER_MAP", viewport }).studyFocus, null);
 });

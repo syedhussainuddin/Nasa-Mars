@@ -2,12 +2,13 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DEFAULT_CENTER } from "../src/globe/globeMath.js";
 
 async function readyGlobe(page, url) {
   await page.goto(url);
   await page.locator('.mars-globe[data-status="ready"]').waitFor();
   await page.waitForFunction(() =>
-    document.querySelectorAll(".globe-marker:not([hidden])").length === 4);
+    document.querySelectorAll(".globe-marker:not([hidden])").length === 1);
 }
 
 const view = (page) => page.locator(".mars-globe").evaluate((element) => ({
@@ -27,9 +28,11 @@ export async function checkPhase3(page, url) {
   await page.setViewportSize({ width: 1440, height: 1024 });
   await readyGlobe(page, url);
   assert.equal(await page.locator(".globe-canvas").count(), 1, "StrictMode must not leak renderers");
-  assert.deepEqual(await view(page), { lat: 11, lon: -23, distance: 3 });
+  assert.deepEqual(await view(page), { ...DEFAULT_CENTER, distance: 3 });
+  assert.equal(await page.locator(".globe-marker").count(), 1);
+  assert.equal(await page.getByRole("button", { name: "Zoom to Jezero Study Area" }).isVisible(), true);
   for (const name of ["Opportunity", "Mawrth Vallis", "Viking 1", "Pathfinder"]) {
-    assert.equal(await page.getByRole("button", { name: `Focus on ${name}` }).isVisible(), true);
+    assert.equal(await page.getByRole("button", { name: `Focus on ${name}` }).count(), 0);
   }
   const directory = join(tmpdir(), "opencode", "nasa-mars-phase3");
   await mkdir(directory, { recursive: true });
@@ -74,17 +77,24 @@ export async function checkPhase3(page, url) {
   assert.ok(Math.abs((await view(page)).distance - afterRotate.distance) < 0.01);
 
   await readyGlobe(page, url);
-  await page.getByRole("button", { name: "Focus on Viking 1" }).click();
+  await page.getByRole("button", { name: "Route planner", exact: true }).click();
+  await page.getByRole("button", { name: "Zoom to Jezero Study Area" }).click();
   await page.waitForFunction(() => {
     const globe = document.querySelector(".mars-globe");
-    return globe.dataset.focusSite === "viking-1" && globe.dataset.focusing === "false";
+    return globe?.dataset.focusSite === "jezero-study-area" &&
+      globe.dataset.focusing === "true" && Number(globe.dataset.distance) < 2.9;
   });
-  const focused = await view(page);
-  assert.ok(Math.abs(focused.lat - 22.27) < 0.02);
-  assert.ok(Math.abs(focused.lon - -47.95) < 0.02);
-  assert.ok(Math.abs(focused.distance - 3) < 0.01, "focus must not unexpectedly zoom");
-  await page.screenshot({ path: join(directory, "globe-focused.png") });
+  await page.locator('.mars-map[data-terrain="ready"]').waitFor();
+  await page.waitForFunction(() => Number(document.querySelector(".mars-map").dataset.zoom) >= 10);
+  await page.getByText("JEZERO · STUDY AREA", { exact: true }).waitFor();
+  const footprint = await page.locator(".grid-footprint").boundingBox();
+  assert.ok(footprint.width >= 160 && footprint.height >= 160);
+  assert.ok(footprint.x > 424 && footprint.y > 167 && footprint.x + footprint.width < 1336 && footprint.y + footprint.height < 1000);
+  assert.equal(await page.locator("#planner-panel").isVisible(), true);
+  assert.equal(await page.locator(".globe-canvas").count(), 0);
+  await page.screenshot({ path: join(directory, "jezero-study-map.png") });
 
+  await readyGlobe(page, url);
   await page.mouse.move(720, 850);
   await page.mouse.wheel(0, 650);
   await page.waitForFunction(() => Number(document.querySelector(".mars-globe").dataset.distance) > 3.2);
@@ -123,10 +133,17 @@ export async function checkPhase3(page, url) {
   // Reload mounts a fresh renderer, including after a complete unmount above.
   await page.emulateMedia({ reducedMotion: "reduce" });
   await readyGlobe(page, url);
-  await page.getByRole("button", { name: "Focus on Opportunity" }).focus();
+  await page.getByRole("button", { name: "Zoom to Jezero Study Area" }).focus();
   await page.keyboard.press("Enter");
-  await page.waitForFunction(() => document.querySelector(".mars-globe").dataset.focusing === "false");
-  assert.ok(Math.abs((await view(page)).lat - -1.95) < 0.02);
+  await page.locator('.mars-map[data-terrain="ready"]').waitFor();
+  await page.waitForFunction(() => Number(document.querySelector(".mars-map").dataset.zoom) >= 10);
+  assert.equal(await page.locator(".globe-marker").count(), 0);
   await page.emulateMedia({ reducedMotion: "no-preference" });
-  console.log(`Phase 3 browser checks passed: textured WebGL globe, four markers, drag/back-face hiding, focus, zoom limits, native pinch, map handoff/panel preservation, remount, reduced motion. Screenshots: ${directory}`);
+  await page.route("**/data/jezero_grid_meta.json", (request) => request.fulfill({ json: {} }));
+  await page.goto(url);
+  await page.getByRole("alert").filter({ hasText: "Jezero study-area marker could not be loaded" }).waitFor();
+  assert.equal(await page.locator(".globe-marker").count(), 0, "invalid metadata must not produce a guessed marker");
+  await page.unroute("**/data/jezero_grid_meta.json");
+  await readyGlobe(page, url);
+  console.log(`Phase 3 browser checks passed: one metadata-positioned Jezero marker, old sites removed, animated study zoom/map fit, drag/back-face hiding, manual zoom limits/native pinch, panel preservation, remount and keyboard/reduced-motion entry. Screenshots: ${directory}`);
 }

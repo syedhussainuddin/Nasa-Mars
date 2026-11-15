@@ -3,14 +3,9 @@ export const DEFAULT_DISTANCE = 3;
 export const MIN_DISTANCE = 1.3;
 export const MAX_DISTANCE = 6;
 export const MAP_TRANSITION_DISTANCE = 1.55;
-export const DEFAULT_CENTER = { lat: 11, lon: -23 };
-
-export const MARS_SITES = [
-  { id: "opportunity", name: "Opportunity", lat: -1.95, lon: 354.47 },
-  { id: "mawrth-vallis", name: "Mawrth Vallis", lat: 24, lon: 343 },
-  { id: "viking-1", name: "Viking 1", lat: 22.27, lon: 312.05 },
-  { id: "pathfinder", name: "Pathfinder", lat: 19.13, lon: 332.18 },
-];
+// Face Jezero initially so the only marker is immediately discoverable.
+// Its precise position is derived separately from the current grid metadata.
+export const DEFAULT_CENTER = { lat: 18.36, lon: 77.22 };
 
 const RAD = Math.PI / 180;
 

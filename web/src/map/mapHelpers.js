@@ -34,20 +34,42 @@ export function routeLatLngs(route, meta) {
 }
 
 /** Route fits leave room for the header, panel, toolbar, and slope legend. */
-export function routeFitOptions(panel, width = 1440, height = 1024) {
+export function routeFitOptions(panel, width = 1440, height = 1024, insets) {
   return {
-    paddingTopLeft: [panel ? Math.min(448, width * 0.4) : 60, Math.min(190, height * 0.25)],
-    paddingBottomRight: [Math.min(130, width * 0.15), 70],
+    paddingTopLeft: [insets?.left ?? (panel ? Math.min(448, width * 0.4) : 60), insets?.top ?? Math.min(190, height * 0.25)],
+    paddingBottomRight: [insets?.right ?? Math.min(130, width * 0.15), insets?.bottom ?? 70],
     maxZoom: MAP_MAX_ZOOM,
     animate: false,
   };
 }
 
-export function studyFitOptions(panel, width, height) {
-  return { ...routeFitOptions(panel, width, height), maxZoom: 12 };
+export function studyFitOptions(panel, width, height, insets) {
+  return { ...routeFitOptions(panel, width, height, insets), maxZoom: 12 };
 }
 
 /** Don't zoom away from useful close-up hazard views; reveal distant/tiny coverage. */
 export function needsStudyFocus({ centerInside, width, height }) {
   return !centerInside || width < 160 || height < 160;
+}
+
+/** Measure the existing controls, rather than assuming desktop panel sizes. */
+export function readMapInsets(element, panel) {
+  const root = element.closest(".app-shell");
+  if (!root) return undefined; // Standalone map/component fixtures.
+  const viewport = element.getBoundingClientRect();
+  const box = (selector) => {
+    const node = root.querySelector(selector);
+    const bounds = node?.getBoundingClientRect();
+    return bounds?.width && bounds.height ? bounds : null;
+  };
+  const side = panel ? box(panel === "planner" ? "#planner-panel" : "#saved-panel") : null;
+  const header = box(".conditions-header"), toolbar = box(".right-toolbar");
+  const footerTop = [box(".imagery-status"), box(".hazard-key"), box(".leaflet-control-attribution")]
+    .filter(Boolean).reduce((top, bounds) => Math.min(top, bounds.top), viewport.bottom);
+  return {
+    left: side ? side.right - viewport.left + 24 : 24,
+    top: header ? header.bottom - viewport.top + 23 : 24,
+    right: toolbar ? viewport.right - toolbar.left + 26 : 24,
+    bottom: Math.max(70, viewport.bottom - footerTop + 16),
+  };
 }

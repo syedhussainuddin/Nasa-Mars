@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { existsSync } from "node:fs";
 import { installImageryFixtures } from "./imageryFixtures.js";
 
 export async function zoomTo(page, target) {
@@ -87,14 +88,24 @@ export async function checkPhase4(page, url) {
   const requests = await installImageryFixtures(page);
   await page.goto(url);
   await page.locator('.mars-globe[data-status="ready"]').waitFor();
-  await page.getByRole("button", { name: "Switch to 2D map" }).click();
+  await page.getByRole("button", { name: "Zoom to Jezero Study Area" }).click();
   await page.locator('.mars-map[data-terrain="ready"]').waitFor();
   await page.waitForFunction(() => document.querySelectorAll('img.leaflet-tile-loaded[data-layer="CTX"]').length > 0);
   assert.equal(await page.locator(".leaflet-control-zoom").count(), 0);
   assert.equal(await page.locator(".grid-footprint").count(), 1);
   assert.match(await page.locator(".leaflet-control-attribution").textContent(), /NASA Mars Trek \/ USGS \/ HiRISE/);
-  assert.equal(await page.locator(".local-ortho").count(), 0, "missing optional image must not be requested");
-  assert.equal(requests.some((url) => url.includes("jezero_ortho")), false);
+  const hasLocalOrtho = existsSync(new URL("../public/data/jezero_ortho.png", import.meta.url));
+  assert.equal(await page.locator(".local-ortho").count(), hasLocalOrtho ? 1 : 0);
+  if (hasLocalOrtho) {
+    await page.waitForFunction(() => document.querySelector(".local-ortho")?.naturalWidth > 0);
+    const alignment = await page.evaluate(() => {
+      const image = document.querySelector(".local-ortho").getBoundingClientRect();
+      const grid = document.querySelector(".grid-footprint").getBoundingClientRect();
+      return Math.max(Math.abs(image.x - grid.x), Math.abs(image.y - grid.y),
+        Math.abs(image.width - grid.width), Math.abs(image.height - grid.height));
+    });
+    assert.ok(alignment <= 2, `local ortho/grid misalignment: ${alignment}px`);
+  }
   const info = page.getByRole("button", { name: "About conditions data" });
   await info.click();
   assert.equal(await info.getAttribute("aria-expanded"), "true", "map panes must stay below header/toolbar");
@@ -169,7 +180,9 @@ export async function checkPhase4(page, url) {
   assert.ok(Math.abs(Number(await page.locator(".mars-globe").getAttribute("data-center-lat")) - exitCenter.lat) < 0.01);
   assert.ok(Math.abs(Number(await page.locator(".mars-globe").getAttribute("data-center-lon")) - exitCenter.lon) < 0.01);
   assert.equal(await page.locator("#planner-panel").isVisible(), true);
-  await page.getByRole("button", { name: "Switch to 2D map" }).click();
+  // Use manual zoom here to test retained endpoints without a marker-triggered fit.
+  await page.mouse.move(720, 850);
+  await page.mouse.wheel(0, -12000);
   await page.locator('.mars-map[data-terrain="ready"]').waitFor();
   assert.equal(Number(await page.locator(".mars-map").getAttribute("data-zoom")), 4);
   await page.locator(".map-endpoint-end").waitFor();
@@ -207,7 +220,7 @@ export async function checkPhase4(page, url) {
   await page.unroute("**/__ortho.svg");
   await page.route("**/data/jezero_grid.json", (request) => request.fulfill({ json: [] }));
   await page.goto(url);
-  await page.getByRole("button", { name: "Switch to 2D map" }).click();
+  await page.getByRole("button", { name: "Zoom to Jezero Study Area" }).click();
   await page.locator('.mars-map[data-terrain="error"]').waitFor();
   await page.getByRole("alert").filter({ hasText: "Endpoint selection and hazards are unavailable" }).waitFor();
   await page.mouse.click(1000, 700);

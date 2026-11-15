@@ -5,7 +5,10 @@ the app shell, conditions header, toolbar, and state management. Phase 3 adds th
 interactive Three.js globe. Phase 4 adds the Leaflet imagery stack, endpoint
 selection, hazards, route drawing, and globe/map transitions. Phase 5 adds the
 working route planner, summary, elevation profile, and automatic saved routes.
-Responsive refinement and the final verification pass remain for Phases 6–7.
+Phase 6 adds tablet/short-window layout refinements. Phase 7 verification is
+complete with a recorded external limitation: live global imagery services
+timed out/returned partial coverage during testing. See [VERIFICATION.md](VERIFICATION.md)
+for results, scope, visual differences, and remaining availability limitations.
 
 ## Run
 
@@ -30,18 +33,31 @@ node node_modules/playwright/cli.js install chromium
 ```
 
 `PLAYWRIGHT_CHANNEL` can select another installed Chromium channel, e.g. `msedge`.
-Browser checks cover Phases 1–5, including native two-touch pinch, marker focus
+Browser checks cover Phases 1–7, including native two-touch pinch, marker focus
 and hiding, imagery fallback, endpoint selection, hazards, route geometry, and
 globe/map transitions. Tile coverage/failure tests use deterministic fixtures:
 they do not establish live NASA availability. Route calculations use the real
 route finder in a Worker, through both typed coordinates and map-click controls.
 Screenshots are written under the system temporary directory in
 `opencode/nasa-mars-phase2/`, `opencode/nasa-mars-phase3/`, and
-`opencode/nasa-mars-phase4/`, and `opencode/nasa-mars-phase5/`, not into the repo.
+`opencode/nasa-mars-phase4/`, `opencode/nasa-mars-phase5/`, and
+`opencode/nasa-mars-phase6/`, not into the repo. Final visual/network artifacts
+are in `opencode/nasa-mars-phase7/`.
 
 After `npm run build`, run `node tests/phase5.preview.js` to check the production
-Worker asset and calculation/summary/profile/save flow. This also uses tile
-fixtures; the route finder and DEM are real.
+Worker asset, calculation/summary/profile/save/restore flow, and four tablet
+sizes. This also uses tile fixtures; the route finder and DEM are real.
+
+Run `node tests/phase7.visual.js` after building to generate reference/current/
+difference images and desktop geometry checks. These are not a zero-diff claim:
+real data, imagery, site placement and requested changes differ from the mockup.
+
+`node tests/phase7.live.js` separately tests actual remote tiles at z2/8/11/14.
+It reports source availability rather than treating fallback as high-resolution
+success, and exits with status 2 when primary global sources are unavailable.
+The final run was degraded; local Jezero functionality and deterministic
+production checks still pass. See the verification report before claiming
+reliable live global coverage.
 
 For a separate live-provider smoke check, run `node tests/phase4.live.js`.
 It waits for a real CTX tile, records provider coverage misses/runtime errors,
@@ -51,10 +67,17 @@ check; sparse providers can return HTTP 404s without breaking the fallback layer
 ## Globe controls
 
 - Drag to orbit; scroll or pinch to zoom. Panning is disabled.
-- Click a site marker (or focus it with the keyboard and press Enter) to centre
-  that site. Reduced-motion preferences skip the focus animation.
+- The globe has one **Jezero Study Area** marker, positioned at the centre of
+  the actual DEM footprint from its metadata. The initial camera faces Jezero
+  so it is immediately visible; the four previous site markers are removed.
+- Click/tap the marker (or focus it and press Enter) to animate toward Jezero,
+  zoom in, and enter 2D fitted to the full study boundary. The existing marker
+  appearance is retained. Reduced-motion preferences skip the fly-in.
+- Marker entry preserves endpoints, route, hazard state, and any open panel.
+  Metadata-load failure shows an error instead of inventing a marker location.
 - Zoom below 1.55 Mars radii to enter map view, preserving the globe viewport and
-  passing the current centre to the map at zoom 4.
+  passing the current centre to the map at zoom 4. This manual entry remains
+  available anywhere and does not force the marker's Jezero boundary fit.
 - Camera distance is limited to 1.3–6 radii. At the default distance the globe is
   approximately 690px across in the 1440×1024 design viewport.
 - Texture credit is visible in the globe; WebGL/texture/context failures show an
@@ -74,8 +97,8 @@ check; sparse providers can return HTTP 404s without breaking the fallback layer
   green <10°, yellow 10–15°, red >15°. No-data cells remain transparent.
 - **To find the study area:** in 2D, click the pin. It fits the labeled
   `JEZERO · STUDY AREA` rectangle and opens the planner, even if already active.
-  Enabling hazards also brings Jezero into view if coverage is off-screen or
-  too small. A useful close-up inside the study area is left unchanged.
+  The hazard button is visible only in 2D. Toggling it never changes the current
+  centre or zoom, even when Jezero is off-screen; use the pin to locate coverage.
   Hazards are not available globally; the legend indicates when you pan away.
 - Imagery stays stacked from coarse to fine. Failed tiles become transparent;
   a tiled local Mars texture remains beneath the stack as a last-resort fallback.
@@ -85,11 +108,17 @@ check; sparse providers can return HTTP 404s without breaking the fallback layer
   New native levels appear as batches; stalled tiles fall back after 20 seconds.
   Global HiRISE is above coarser Jezero CTX, not hidden under it. The small source
   readout distinguishes loading/missing detail from available imagery.
+  When the local orthomosaic is visible it is identified as the local source,
+  not incorrectly attributed to an underlying remote tile layer.
 - `MarsMap` draws supplied route cells as a 4px golden line with a glow and fits
   the view with UI-aware padding after calculation or saved-route restoration.
 - If the data owner provides `public/data/jezero_ortho.png`, restart Vite or
   rebuild to enable the local image at the grid bounds. Without it, Jezero WMTS
   imagery is used. No protected data files are created or changed by this loader.
+
+The merged backend now supplies that local orthomosaic. Browser checks detect
+its presence, verify it decodes and aligns with the grid, and retain a separate
+fixture for the absent-image path.
 
 `npm run test:browser` also reproduces globe entry far from Jezero followed by
 hazard activation, re-location using an already-active pin, partial/slow imagery,
@@ -122,6 +151,23 @@ Recalculating the same cell pair updates its saved entry rather than duplicating
 it; row tooltips identify the endpoint coordinates. Corrupt records report
 validation errors. If storage is blocked/full, routes remain available in the
 current session only, with a visible warning.
+
+## Tablet layout
+
+The 1440×1024 layout stays unchanged. At widths up to 1199px or window heights
+up to 820px, the same crown, palette, panels and three toolbar controls use
+smaller margins and panel widths. Long results scroll inside their panel,
+including by touch; the map itself stays within the viewport.
+
+Map fitting measures the visible header, sidebar, toolbar and footer instead
+of assuming desktop dimensions. Rotation re-fits an existing route without
+clearing endpoints or calculated results. Hazards use the unobscured map region
+when deciding whether Jezero needs to be brought into view.
+
+The tablet checks cover landscape (1024×768), portrait (768×1024), short
+landscape (1024×600), and tall portrait (800×1280), with touch controls,
+route calculation, scrolling, save/restore, orientation changes, hazards and
+local imagery. No new controls or alternative dashboard layout were added.
 
 ## Ownership
 
