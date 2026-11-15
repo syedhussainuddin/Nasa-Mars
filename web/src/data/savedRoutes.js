@@ -1,5 +1,6 @@
 const KEY = "mars-nav:saved-routes:v1";
 let sessionRoutes = [];
+let sessionOnly = false;
 
 const validCell = (cell) => Number.isInteger(cell?.row) && Number.isInteger(cell?.col) &&
   cell.row >= 0 && cell.col >= 0;
@@ -15,6 +16,12 @@ export function isValidSavedRoute(route, meta) {
 }
 
 export function readSavedRoutes(meta) {
+  if (sessionOnly) {
+    return {
+      routes: sessionRoutes.filter((route) => isValidSavedRoute(route, meta)),
+      error: "Storage is unavailable. Your routes are saved for this session only.",
+    };
+  }
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) || "[]");
     if (!Array.isArray(raw)) throw new Error("Invalid saved routes.");
@@ -40,8 +47,10 @@ export function writeSavedRoutes(routes) {
   sessionRoutes = JSON.parse(JSON.stringify(routes));
   try {
     localStorage.setItem(KEY, JSON.stringify(sessionRoutes));
+    sessionOnly = false;
     return "";
   } catch {
+    sessionOnly = true;
     return "Storage is unavailable. Your routes are saved for this session only.";
   }
 }

@@ -1,12 +1,16 @@
 // Frontend-only state. Routing and DEM modules remain owned by the data team.
 import { DEFAULT_CENTER, DEFAULT_DISTANCE } from "../globe/globeMath.js";
 import { MAP_ENTRY_ZOOM, MAP_EXIT_ZOOM } from "../map/mapHelpers.js";
+import { formatCoordinates } from "../planner/plannerData.js";
 
 export function createInitialState() {
   return {
     view: "globe",
     panel: null,
     endpoints: { start: null, end: null },
+    endpointDrafts: { start: "", end: "" },
+    fieldErrors: { start: "", end: "" },
+    plannerExpanded: false,
     route: null,
     hazardsVisible: false,
     studyFocus: null,
@@ -116,6 +120,27 @@ export function appReducer(state, action) {
         viewports: { ...state.viewports, [action.view]: { ...viewport, center: { ...viewport.center } } },
       };
     }
+    case "EDIT_ENDPOINT":
+      if (!["start", "end"].includes(action.kind) || typeof action.text !== "string") return state;
+      return {
+        ...state,
+        endpointDrafts: { ...state.endpointDrafts, [action.kind]: action.text },
+        endpoints: { ...state.endpoints, [action.kind]: validPoint(action.point) ? action.point : null },
+        fieldErrors: { ...state.fieldErrors, [action.kind]: "" },
+        route: null, routeStatus: "idle", routeError: "", routeRequestId: state.routeRequestId + 1,
+      };
+    case "VALIDATION_ERROR":
+      return {
+        ...state, panel: "planner", route: null, routeStatus: "error", routeError: "",
+        endpoints: action.endpoints || state.endpoints, fieldErrors: action.errors,
+        routeRequestId: state.routeRequestId + 1,
+      };
+    case "CALCULATION_ERROR":
+      return {
+        ...state, route: null, routeStatus: "error",
+        routeError: action.error || "No route could be calculated.",
+        routeRequestId: state.routeRequestId + 1,
+      };
     case "SELECT_ENDPOINT": {
       if (!validPoint(action.point)) return { ...state, routeError: "Choose a valid map coordinate." };
       const point = { ...action.point };
@@ -124,23 +149,33 @@ export function appReducer(state, action) {
         : { start: state.endpoints.start, end: point };
       return {
         ...state, endpoints, panel: "planner", route: null, routeStatus: "idle",
+        endpointDrafts: { start: formatCoordinates(endpoints.start), end: formatCoordinates(endpoints.end) },
+        fieldErrors: { start: "", end: "" },
         routeError: "", routeRequestId: state.routeRequestId + 1,
       };
     }
-    case "ROUTE_START":
-      if (!state.endpoints.start || !state.endpoints.end) {
+    case "ROUTE_START": {
+      const endpoints = action.endpoints || state.endpoints;
+      if (!validPoint(endpoints.start) || !validPoint(endpoints.end)) {
         return { ...state, routeError: "Choose both a start and a destination." };
       }
       return {
         ...state, route: null, routeStatus: "loading", routeError: "",
+        endpoints, fieldErrors: { start: "", end: "" },
+        endpointDrafts: { start: formatCoordinates(endpoints.start), end: formatCoordinates(endpoints.end) },
+        panel: action.restoring ? "saved" : "planner",
         routeRequestId: state.routeRequestId + 1,
       };
+    }
     case "ROUTE_SUCCESS":
       if (state.routeStatus !== "loading" || action.requestId !== state.routeRequestId) return state;
       if (!validRoute(action.route)) {
         return { ...state, route: null, routeStatus: "error", routeError: "The route result is invalid." };
       }
-      return { ...state, route: action.route, panel: "planner", routeStatus: "ready", routeError: "" };
+      return changeView({
+        ...state, route: action.route, panel: "planner", plannerExpanded: true,
+        routeStatus: "ready", routeError: "", studyFocus: null,
+      }, "map");
     case "ROUTE_ERROR":
       if (state.routeStatus !== "loading" || action.requestId !== state.routeRequestId) return state;
       return {
@@ -148,12 +183,15 @@ export function appReducer(state, action) {
         routeError: typeof action.error === "string" && action.error ? action.error : "No route could be calculated.",
       };
     case "RESTORE_ROUTE": {
+      if (action.requestId != null && (action.requestId !== state.routeRequestId || state.routeStatus !== "loading")) return state;
       if (!validPoint(action.endpoints?.start) || !validPoint(action.endpoints?.end) || !validRoute(action.route)) {
         return { ...state, routeError: "This saved route is corrupt and could not be loaded." };
       }
       return changeView({
         ...state,
         endpoints: { start: { ...action.endpoints.start }, end: { ...action.endpoints.end } },
+        endpointDrafts: { start: formatCoordinates(action.endpoints.start), end: formatCoordinates(action.endpoints.end) },
+        fieldErrors: { start: "", end: "" }, plannerExpanded: true, studyFocus: null,
         route: action.route, panel: "planner", routeStatus: "ready", routeError: "",
         routeRequestId: state.routeRequestId + 1,
       }, "map");

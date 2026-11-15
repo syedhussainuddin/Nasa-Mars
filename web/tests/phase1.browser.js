@@ -7,6 +7,7 @@ import { checkPhase3 } from "./phase3.browser.js";
 import { installImageryFixtures } from "./imageryFixtures.js";
 import { checkPhase4, phase4Harness } from "./phase4.browser.js";
 import { checkMapFixes } from "./mapFixes.browser.js";
+import { checkPhase5 } from "./phase5.browser.js";
 
 const server = await createServer({
   server: { host: "127.0.0.1", port: 0, open: false, hmr: false },
@@ -106,6 +107,7 @@ try {
   await checkPhase3(page, server.resolvedUrls.local[0]);
   await checkPhase4(page, server.resolvedUrls.local[0]);
   await checkMapFixes(page, server.resolvedUrls.local[0]);
+  await checkPhase5(page, server.resolvedUrls.local[0]);
   assert.deepEqual(errors, []);
 } finally {
   await browser?.close();

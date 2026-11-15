@@ -3,8 +3,9 @@
 React + Vite frontend. Phase 1 supplies data/routing plumbing. Phase 2 supplies
 the app shell, conditions header, toolbar, and state management. Phase 3 adds the
 interactive Three.js globe. Phase 4 adds the Leaflet imagery stack, endpoint
-selection, hazards, route drawing, and globe/map transitions. Full routing panels
-and the Calculate action remain for Phase 5.
+selection, hazards, route drawing, and globe/map transitions. Phase 5 adds the
+working route planner, summary, elevation profile, and automatic saved routes.
+Responsive refinement and the final verification pass remain for Phases 6–7.
 
 ## Run
 
@@ -29,14 +30,18 @@ node node_modules/playwright/cli.js install chromium
 ```
 
 `PLAYWRIGHT_CHANNEL` can select another installed Chromium channel, e.g. `msedge`.
-Browser checks cover Phases 1–4, including native two-touch pinch, marker focus
+Browser checks cover Phases 1–5, including native two-touch pinch, marker focus
 and hiding, imagery fallback, endpoint selection, hazards, route geometry, and
 globe/map transitions. Tile coverage/failure tests use deterministic fixtures:
-they do not establish live NASA availability. Route drawing is tested through a
-component fixture with a real calculated route, before Phase 5 adds its controls.
+they do not establish live NASA availability. Route calculations use the real
+route finder in a Worker, through both typed coordinates and map-click controls.
 Screenshots are written under the system temporary directory in
 `opencode/nasa-mars-phase2/`, `opencode/nasa-mars-phase3/`, and
-`opencode/nasa-mars-phase4/`, not into the repo.
+`opencode/nasa-mars-phase4/`, and `opencode/nasa-mars-phase5/`, not into the repo.
+
+After `npm run build`, run `node tests/phase5.preview.js` to check the production
+Worker asset and calculation/summary/profile/save flow. This also uses tile
+fixtures; the route finder and DEM are real.
 
 For a separate live-provider smoke check, run `node tests/phase4.live.js`.
 It waits for a real CTX tile, records provider coverage misses/runtime errors,
@@ -81,7 +86,7 @@ check; sparse providers can return HTTP 404s without breaking the fallback layer
   Global HiRISE is above coarser Jezero CTX, not hidden under it. The small source
   readout distinguishes loading/missing detail from available imagery.
 - `MarsMap` draws supplied route cells as a 4px golden line with a glow and fits
-  the view with UI-aware padding. User-facing route calculation is Phase 5.
+  the view with UI-aware padding after calculation or saved-route restoration.
 - If the data owner provides `public/data/jezero_ortho.png`, restart Vite or
   rebuild to enable the local image at the grid bounds. Without it, Jezero WMTS
   imagery is used. No protected data files are created or changed by this loader.
@@ -90,6 +95,33 @@ check; sparse providers can return HTTP 404s without breaking the fallback layer
 hazard activation, re-location using an already-active pin, partial/slow imagery,
 and stalled-tile fallback. The live smoke check now verifies a visible hazard
 raster and a promoted CTX layer, rather than merely counting a decoded tile.
+
+## Plan and save a route
+
+1. Enter 2D, then click the pin to locate Jezero and open the planner.
+2. Click two points inside the dashed footprint, or enter decimal
+   `latitude, longitude` coordinates in the two inputs. Inputs also accept a
+   whitespace-separated pair; longitude may be −180…180 or 0…360 east.
+3. Click **Calculate Route**. Elevation/slope details come from the selected DEM
+   cells. Successful routes open the map and expanded summary/profile; routes
+   automatically save locally, without a separate save button.
+4. Edit either point and use **Recalculate Route**. Editing clears old results
+   immediately and cancels pending work, so stale results cannot reappear.
+5. Use the star to open saved routes. Selecting a row recalculates its endpoints
+   against the current grid, switches to the map, and fits/draws the route.
+
+Routing runs off the UI thread, using the team's unchanged `planRoute` through a
+frontend-owned Worker. It times out after 30 seconds and needs Worker support.
+Missing/invalid coordinates, outside/no-data cells, blocked endpoints, failed
+routes, and Worker errors produce inline messages without partial results.
+
+Summary values and elevation samples come from route metrics, not demo values.
+Risk is explicitly labeled **estimated terrain risk**. Empty/flat/single-point
+profiles are handled without invented measurements or invalid chart geometry.
+Recalculating the same cell pair updates its saved entry rather than duplicating
+it; row tooltips identify the endpoint coordinates. Corrupt records report
+validation errors. If storage is blocked/full, routes remain available in the
+current session only, with a visible warning.
 
 ## Ownership
 
@@ -110,7 +142,8 @@ route finding. Phase 1 changes to protected files still need owner review.
   existing real route finder. Errors are display strings; successful results
   contain grid cells and route metrics. Coordinate conversion uses the DEM's
   spherical Mars equirectangular projection.
-- Saved route entries are `{ id, name, start, end, distanceKm }`, with endpoints
+- Saved route entries are `{ id, name, start, end, distanceKm }` with an optional
+  `description` for endpoint coordinate tooltips, with endpoints
   as `{ row, col }` cells. Pass grid metadata to `readSavedRoutes(meta)` for bounds
   validation. Invalid entries produce a message; storage failure has an in-session
   fallback. Routes should be recalculated from endpoints when restored.

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { installImageryFixtures } from "./imageryFixtures.js";
 
-async function zoomTo(page, target) {
+export async function zoomTo(page, target) {
   await page.locator(".mars-map").focus();
   let current = Number(await page.locator(".mars-map").getAttribute("data-zoom"));
   while (current !== target) {
@@ -24,7 +24,7 @@ async function zoomTo(page, target) {
   }
 }
 
-async function clickCell(page, cell) {
+export async function clickCell(page, cell) {
   const point = await page.evaluate(async (cell) => {
     const { loadGrid } = await import("/src/data/loadGrid.js");
     const { cellToLatLon } = await import("/src/routing/coordinates.js");
@@ -107,7 +107,17 @@ export async function checkPhase4(page, url) {
   await page.locator(".map-endpoint-end").waitFor();
   assert.equal(await page.locator(".map-endpoint").count(), 2);
   const colors = await page.locator(".map-endpoint-dot").evaluateAll((nodes) => nodes.map((node) => getComputedStyle(node).backgroundColor));
-  assert.deepEqual(colors, ["rgb(241, 199, 73)", "rgb(0, 200, 83)"]);
+  assert.deepEqual(colors, ["rgb(241, 199, 73)", "rgb(255, 255, 255)"]);
+  assert.equal(await page.locator(".map-endpoint-end").evaluate((marker) => getComputedStyle(marker).borderTopColor), "rgb(0, 217, 255)");
+  const checkMarkerCenters = async () => {
+    const offsets = await page.locator(".map-endpoint").evaluateAll((markers) => markers.map((marker) => {
+      const outer = marker.getBoundingClientRect();
+      const dot = marker.querySelector(".map-endpoint-dot").getBoundingClientRect();
+      return { x: Math.abs(dot.x + dot.width / 2 - outer.x - outer.width / 2), y: Math.abs(dot.y + dot.height / 2 - outer.y - outer.height / 2) };
+    }));
+    assert.ok(offsets.every(({ x, y }) => x < 0.1 && y < 0.1), JSON.stringify(offsets));
+  };
+  await checkMarkerCenters();
   await clickCell(page, { row: 225, col: 225 });
   await page.waitForFunction(() => document.querySelectorAll(".map-endpoint").length === 1);
   await page.mouse.click(1200, 800);
@@ -120,6 +130,7 @@ export async function checkPhase4(page, url) {
   const hazard = page.getByRole("button", { name: "Toggle hazard overlay" });
   await hazard.click();
   await page.locator(".hazard-raster").waitFor();
+  await checkMarkerCenters();
   assert.equal(await page.locator(".hazard-legend li").count(), 3);
   assert.equal(await page.locator(".hazard-raster").evaluate((image) => getComputedStyle(image).opacity), "0.43");
   await hazard.click();
