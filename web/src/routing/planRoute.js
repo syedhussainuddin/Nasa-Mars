@@ -9,7 +9,7 @@
 // import below to his file (agreed name: ./findRoute.js).
 
 import { latLonToCell } from "./coordinates.js";
-import { findRoute } from "./fakeRoute.js";
+import { findRoute } from "./findRoute.js";
 
 export function planRoute(startLatLon, endLatLon, grid, meta) {
   const start = latLonToCell(startLatLon, meta);
@@ -23,8 +23,11 @@ export function planRoute(startLatLon, endLatLon, grid, meta) {
   }
 
   const result = findRoute(grid, meta, start, end);
-  if (!result || result.error) {
-    return { error: (result && result.error) || "No route found between these points." };
-  }
+    if (!result || result.error) {
+    const e = result && result.error;
+    const message =
+      typeof e === "string" ? e : (e && e.message) || "No route found between these points.";
+    return { error: message, code: (e && e.code) || "NO_ROUTE" };
+    }
   return { start, end, ...result };
 }
