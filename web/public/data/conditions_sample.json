@@ -2,6 +2,8 @@
   "isSample": true,
   "note": "SAMPLE DATA for the demo. Replace with real Perseverance MEDA readings when available.",
   "source": "Sample data (not a real measurement)",
+  "radiation": 0.67,
+  "storm": "LOW",
   "readings": [
     { "sol": 100, "temperatureC": -60, "pressurePa": 740 },
     { "sol": 101, "temperatureC": -58, "pressurePa": 742 },

@@ -5,11 +5,8 @@
 //   const result = planRoute(startLatLon, endLatLon, grid, meta);
 //   if (result.error) { show result.error } else { draw result.cells, fill the summary box }
 //
-// SWITCH TO THE REAL ROUTE FINDER: when Zayem's version is merged, change the
-// import below to his file (agreed name: ./findRoute.js).
-
 import { latLonToCell } from "./coordinates.js";
-import { findRoute } from "./fakeRoute.js";
+import { findRoute } from "./findRoute.js";
 
 export function planRoute(startLatLon, endLatLon, grid, meta) {
   const start = latLonToCell(startLatLon, meta);
@@ -24,7 +21,11 @@ export function planRoute(startLatLon, endLatLon, grid, meta) {
 
   const result = findRoute(grid, meta, start, end);
   if (!result || result.error) {
-    return { error: (result && result.error) || "No route found between these points." };
+    const error = result?.error;
+    return {
+      error: (typeof error === "string" ? error : error?.message) ||
+        "No route found between these points.",
+    };
   }
   return { start, end, ...result };
 }

@@ -1,6 +1,6 @@
 const CLASSES = ["green", "yellow", "red"];
 const SLOPE_THRESHOLD_EPSILON = 1e-12;
-const classFor = (slope) => slope < 10 ? "green" : slope <= 15 + SLOPE_THRESHOLD_EPSILON ? "yellow" : "red";
+export const classFor = (slope) => slope < 10 ? "green" : slope <= 15 + SLOPE_THRESHOLD_EPSILON ? "yellow" : "red";
 
 /** Return route length, maximum slope, risk label, elevation profile, and class shares. */
 export function computeRouteMetrics(grid, meta, slopeGrid, cells) {
