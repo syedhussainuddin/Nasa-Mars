@@ -1,5 +1,6 @@
 {
   "isSample": true,
+  "generatedWithAI": true,
   "note": "SAMPLE DATA for the demo. Replace with real Perseverance MEDA readings when available.",
   "source": "Sample data (not a real measurement)",
   "radiation": 0.67,
