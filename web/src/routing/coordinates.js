@@ -1,4 +1,4 @@
-// Task 3: convert between map coordinates and elevation-grid cells.
+s// Task 3: convert between map coordinates and elevation-grid cells.
 //
 // Contract (from the PRD): coordinates are plain numeric decimal degrees,
 //   { lat: 18.38, lon: 77.50 }
