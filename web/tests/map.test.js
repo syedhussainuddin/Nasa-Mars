@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { cellToLatLon } from "../src/routing/coordinates.js";
-import { selectMapEndpoint, routeLatLngs, routeFitOptions, studyFitOptions, needsStudyFocus, wrapLongitude } from "../src/map/mapHelpers.js";
+import { selectMapEndpoint, routeLatLngs, routeFitOptions, studyFitOptions, needsStudyFocus, readMapInsets, wrapLongitude } from "../src/map/mapHelpers.js";
 import { appReducer, createInitialState } from "../src/state/appState.js";
 import { MAP_TRANSITION_DISTANCE } from "../src/globe/globeMath.js";
 
@@ -87,4 +87,23 @@ test("coverage auto-focus reveals off-screen/tiny study areas but preserves usef
   assert.equal(needsStudyFocus({ centerInside: true, width: 400, height: 400 }), false);
   assert.equal(needsStudyFocus({ centerInside: true, width: 5000, height: 5000 }), false);
   assert.equal(studyFitOptions("planner", 1440, 1024).maxZoom, 12);
+});
+
+test("map padding uses actual tablet controls rather than desktop-width assumptions", () => {
+  const bounds = {
+    "#planner-panel": { right: 344, width: 320, height: 494 },
+    ".conditions-header": { bottom: 142, width: 624, height: 118 },
+    ".right-toolbar": { left: 960, width: 40, height: 150 },
+    ".imagery-status": { top: 680, width: 280, height: 64 },
+  };
+  const root = { querySelector: (selector) => bounds[selector] ? { getBoundingClientRect: () => bounds[selector] } : null };
+  const element = {
+    closest: () => root,
+    getBoundingClientRect: () => ({ left: 0, top: 0, right: 1024, bottom: 768 }),
+  };
+  const insets = readMapInsets(element, "planner");
+  assert.deepEqual(insets, { left: 368, top: 165, right: 90, bottom: 104 });
+  assert.deepEqual(routeFitOptions("planner", 1024, 768, insets).paddingTopLeft, [368, 165]);
+  assert.deepEqual(studyFitOptions("planner", 1024, 768, insets).paddingBottomRight, [90, 104]);
+  assert.equal(readMapInsets({ closest: () => null }, null), undefined);
 });

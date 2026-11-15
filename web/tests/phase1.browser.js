@@ -8,6 +8,8 @@ import { installImageryFixtures } from "./imageryFixtures.js";
 import { checkPhase4, phase4Harness } from "./phase4.browser.js";
 import { checkMapFixes } from "./mapFixes.browser.js";
 import { checkPhase5 } from "./phase5.browser.js";
+import { checkPhase6 } from "./phase6.browser.js";
+import { checkPhase7 } from "./phase7.browser.js";
 
 const server = await createServer({
   server: { host: "127.0.0.1", port: 0, open: false, hmr: false },
@@ -108,6 +110,16 @@ try {
   await checkPhase4(page, server.resolvedUrls.local[0]);
   await checkMapFixes(page, server.resolvedUrls.local[0]);
   await checkPhase5(page, server.resolvedUrls.local[0]);
+  await checkPhase7(page, server.resolvedUrls.local[0]);
+  const tablet = await browser.newPage({ viewport: { width: 1024, height: 768 }, hasTouch: true });
+  await installImageryFixtures(tablet);
+  tablet.on("pageerror", (error) => errors.push(error.message));
+  tablet.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+  try {
+    await checkPhase6(tablet, server.resolvedUrls.local[0]);
+  } finally {
+    await tablet.close();
+  }
   assert.deepEqual(errors, []);
 } finally {
   await browser?.close();

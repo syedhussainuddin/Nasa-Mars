@@ -7,7 +7,7 @@ import { IMAGERY_ATTRIBUTION } from "../data/wmts.js";
 import { createTextureFallback, createImageryLayers, imageryStatus, LOCAL_ORTHO_URL } from "../map/imageryLayers.js";
 import {
   MAP_ENTRY_ZOOM, MAP_EXIT_ZOOM, MAP_MAX_ZOOM,
-  routeLatLngs, routeFitOptions, studyFitOptions, needsStudyFocus, selectMapEndpoint, wrapLongitude,
+  routeLatLngs, routeFitOptions, studyFitOptions, needsStudyFocus, readMapInsets, selectMapEndpoint, wrapLongitude,
 } from "../map/mapHelpers.js";
 
 export default function MarsMap({
@@ -31,12 +31,15 @@ export default function MarsMap({
   const panelRef = useRef(panel);
   const refreshMap = useRef(null);
   const handledStudyFocus = useRef(null);
+  const refitRoute = useRef(null);
+  const localOrtho = useRef(null);
   const [studyInView, setStudyInView] = useState(false);
   const [imagery, setImagery] = useState({ source: "Local texture fallback", grayscale: false, loading: true, fallback: false });
 
   useEffect(() => {
     callbacks.current = { onViewportChange, onExitGlobe, onSelectEndpoint, onSelectionError, onStudyFocusComplete };
     panelRef.current = panel;
+    refreshMap.current?.();
   }, [onViewportChange, onExitGlobe, onSelectEndpoint, onSelectionError, onStudyFocusComplete, panel]);
 
   useEffect(() => {
@@ -87,7 +90,16 @@ export default function MarsMap({
       reportFrame = requestAnimationFrame(() => {
         reportFrame = 0;
         if (!element.isConnected || mapRef.current !== map) return;
-        const next = imageryStatus(entries, map);
+        let next = imageryStatus(entries, map);
+        const image = localOrtho.current?.getElement();
+        if (image?.complete && image.naturalWidth > 0) {
+          const imageBox = image.getBoundingClientRect(), viewBox = element.getBoundingClientRect();
+          const visibleWidth = Math.min(imageBox.right, viewBox.right) - Math.max(imageBox.left, viewBox.left);
+          const visibleHeight = Math.min(imageBox.bottom, viewBox.bottom) - Math.max(imageBox.top, viewBox.top);
+          if (visibleWidth >= 32 && visibleHeight >= 32) {
+            next = { ...next, source: "Local Jezero orthomosaic" };
+          }
+        }
         setImagery((previous) => JSON.stringify(previous) === JSON.stringify(next) ? previous : next);
         element.dataset.imagerySource = next.source;
         element.dataset.imageryLoading = String(next.loading);
@@ -95,8 +107,13 @@ export default function MarsMap({
           const bounds = L.latLngBounds(gridBoundsLatLon(dataRef.current.meta));
           const sw = map.latLngToContainerPoint(bounds.getSouthWest());
           const ne = map.latLngToContainerPoint(bounds.getNorthEast());
+          const insets = readMapInsets(element, panelRef.current);
+          const center = insets ? map.containerPointToLatLng([
+            (insets.left + element.clientWidth - insets.right) / 2,
+            (insets.top + element.clientHeight - insets.bottom) / 2,
+          ]) : map.getCenter();
           setStudyInView(!needsStudyFocus({
-            centerInside: bounds.contains(map.getCenter()),
+            centerInside: bounds.contains(center),
             width: Math.abs(ne.x - sw.x), height: Math.abs(ne.y - sw.y),
           }));
         }
@@ -140,8 +157,15 @@ export default function MarsMap({
     const initial = initialViewport.current;
     map.setView([initial.center.lat, initial.center.lon],
       Math.max(MAP_ENTRY_ZOOM, Math.min(MAP_MAX_ZOOM, initial.zoom)), { animate: false });
+    let previousWidth = element.clientWidth, previousHeight = element.clientHeight;
     const observer = new ResizeObserver(() => {
-      if (element.isConnected && mapRef.current === map) map.invalidateSize({ pan: false });
+      if (!element.isConnected || mapRef.current !== map) return;
+      if (previousWidth === element.clientWidth && previousHeight === element.clientHeight) return;
+      previousWidth = element.clientWidth;
+      previousHeight = element.clientHeight;
+      map.invalidateSize({ pan: false });
+      refitRoute.current?.();
+      report();
     });
     observer.observe(element);
     setReady(true);
@@ -149,6 +173,7 @@ export default function MarsMap({
       observer.disconnect();
       cancelAnimationFrame(reportFrame);
       refreshMap.current = null;
+      refitRoute.current = null;
       map.off();
       map.remove();
       mapRef.current = null;
@@ -189,12 +214,21 @@ export default function MarsMap({
     const overlay = L.imageOverlay(localOrthoUrl, gridBoundsLatLon(data.meta), {
       pane: "localOrthoPane", className: "local-ortho", interactive: false,
     });
+    localOrtho.current = overlay;
+    overlay.on("load", () => refreshMap.current?.());
     overlay.on("error", () => {
       overlay.remove();
+      if (localOrtho.current === overlay) localOrtho.current = null;
+      refreshMap.current?.();
       setOrthoError("The local image could not be loaded. NASA imagery remains available underneath.");
     });
     overlay.addTo(mapRef.current);
-    return () => { overlay.off(); overlay.remove(); };
+    return () => {
+      overlay.off();
+      overlay.remove();
+      if (localOrtho.current === overlay) localOrtho.current = null;
+      refreshMap.current?.();
+    };
   }, [ready, data, localOrthoUrl]);
 
   useEffect(() => {
@@ -229,19 +263,24 @@ export default function MarsMap({
     if (!ready || !data) return;
     const layer = routeLayer.current;
     layer.clearLayers();
+    refitRoute.current = null;
     setRouteError("");
     if (!route) return;
     try {
       const points = routeLatLngs(route, data.meta);
       L.polyline(points, { pane: "routePane", className: "route-glow", color: "#F1C749", weight: 13, opacity: 0.22, interactive: false }).addTo(layer);
       const line = L.polyline(points, { pane: "routePane", className: "route-line", color: "#F1C749", weight: 4, opacity: 1, interactive: false }).addTo(layer);
-      mapRef.current.fitBounds(line.getBounds(),
-        routeFitOptions(panelRef.current, host.current.clientWidth, host.current.clientHeight));
+      const map = mapRef.current, element = host.current;
+      const fit = () => map.fitBounds(line.getBounds(),
+        routeFitOptions(panelRef.current, element.clientWidth, element.clientHeight, readMapInsets(element, panelRef.current)));
+      refitRoute.current = fit;
+      fit();
     } catch {
       layer.clearLayers();
+      refitRoute.current = null;
       setRouteError("This route contains invalid map coordinates and could not be drawn.");
     }
-    return () => layer.clearLayers();
+    return () => { layer.clearLayers(); refitRoute.current = null; };
   }, [ready, data, route]);
 
   useEffect(() => {
@@ -250,11 +289,17 @@ export default function MarsMap({
     const bounds = L.latLngBounds(gridBoundsLatLon(data.meta));
     const sw = map.latLngToContainerPoint(bounds.getSouthWest());
     const ne = map.latLngToContainerPoint(bounds.getNorthEast());
+    const element = host.current;
+    const insets = readMapInsets(element, panelRef.current);
+    const center = insets ? map.containerPointToLatLng([
+      (insets.left + element.clientWidth - insets.right) / 2,
+      (insets.top + element.clientHeight - insets.bottom) / 2,
+    ]) : map.getCenter();
     if (studyFocus.reason === "planner" || needsStudyFocus({
-      centerInside: bounds.contains(map.getCenter()),
+      centerInside: bounds.contains(center),
       width: Math.abs(ne.x - sw.x), height: Math.abs(ne.y - sw.y),
     })) {
-      map.fitBounds(bounds, studyFitOptions(panelRef.current, host.current.clientWidth, host.current.clientHeight));
+      map.fitBounds(bounds, studyFitOptions(panelRef.current, element.clientWidth, element.clientHeight, insets));
     }
     handledStudyFocus.current = studyFocus.id;
     refreshMap.current?.();

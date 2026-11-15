@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { existsSync } from "node:fs";
 import { installImageryFixtures } from "./imageryFixtures.js";
 
 export async function zoomTo(page, target) {
@@ -93,8 +94,18 @@ export async function checkPhase4(page, url) {
   assert.equal(await page.locator(".leaflet-control-zoom").count(), 0);
   assert.equal(await page.locator(".grid-footprint").count(), 1);
   assert.match(await page.locator(".leaflet-control-attribution").textContent(), /NASA Mars Trek \/ USGS \/ HiRISE/);
-  assert.equal(await page.locator(".local-ortho").count(), 0, "missing optional image must not be requested");
-  assert.equal(requests.some((url) => url.includes("jezero_ortho")), false);
+  const hasLocalOrtho = existsSync(new URL("../public/data/jezero_ortho.png", import.meta.url));
+  assert.equal(await page.locator(".local-ortho").count(), hasLocalOrtho ? 1 : 0);
+  if (hasLocalOrtho) {
+    await page.waitForFunction(() => document.querySelector(".local-ortho")?.naturalWidth > 0);
+    const alignment = await page.evaluate(() => {
+      const image = document.querySelector(".local-ortho").getBoundingClientRect();
+      const grid = document.querySelector(".grid-footprint").getBoundingClientRect();
+      return Math.max(Math.abs(image.x - grid.x), Math.abs(image.y - grid.y),
+        Math.abs(image.width - grid.width), Math.abs(image.height - grid.height));
+    });
+    assert.ok(alignment <= 2, `local ortho/grid misalignment: ${alignment}px`);
+  }
   const info = page.getByRole("button", { name: "About conditions data" });
   await info.click();
   assert.equal(await info.getAttribute("aria-expanded"), "true", "map panes must stay below header/toolbar");

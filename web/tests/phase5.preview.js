@@ -20,7 +20,7 @@ try {
   browser = await chromium.launch({
     channel: process.env.PLAYWRIGHT_CHANNEL || (existsSync(chromium.executablePath()) ? undefined : "chrome"),
   });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1024 } });
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1024 }, hasTouch: true });
   await installImageryFixtures(page);
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -37,8 +37,32 @@ try {
   await page.getByRole("button", { name: "Saved routes", exact: true }).click();
   await page.locator(".saved-route-row").waitFor();
   assert.equal(await page.locator(".saved-route-row").count(), 1);
+  await page.locator(".saved-route-row").tap();
+  await page.getByRole("button", { name: "Recalculate Route", exact: true }).waitFor();
+  for (const viewport of [
+    { width: 1024, height: 768 }, { width: 768, height: 1024 },
+    { width: 1024, height: 600 }, { width: 800, height: 1280 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.waitForFunction(() => {
+      const panel = document.querySelector("#planner-panel").getBoundingClientRect();
+      const toolbar = document.querySelector(".right-toolbar").getBoundingClientRect();
+      return [...document.querySelectorAll(".map-endpoint")].length === 2 &&
+        [...document.querySelectorAll(".map-endpoint")].every((marker) => {
+          const bounds = marker.getBoundingClientRect();
+          return bounds.left > panel.right && bounds.right < toolbar.left && bounds.bottom < innerHeight - 90;
+        });
+    });
+    assert.deepEqual(await page.evaluate(() => ({
+      width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight,
+    })), viewport);
+    assert.equal(await page.locator('[data-metric="distance"]').textContent(), `${expected.distanceKm.toFixed(2)} Km`);
+    await page.locator(".elevation-chart").scrollIntoViewIfNeeded();
+    const chart = await page.locator(".elevation-chart").boundingBox();
+    assert.ok(chart.y >= 170 && chart.y + chart.height < viewport.height - 90);
+  }
   assert.deepEqual(errors, []);
-  console.log("Production preview passed: built Web Worker, real route/metrics/profile, map rendering and automatic saved route; no console errors. Imagery uses fixtures.");
+  console.log("Production preview passed: built Web Worker, real route/metrics/profile, map rendering, automatic save/restore, and route/layout preservation at desktop plus four tablet sizes; no console errors. Imagery uses fixtures.");
 } finally {
   await browser?.close();
   await new Promise((resolve, reject) => server.httpServer.close((error) => error ? reject(error) : resolve()));
