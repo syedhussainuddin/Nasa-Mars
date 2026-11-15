@@ -1,9 +1,10 @@
 # Mars Navigation System
 
 React + Vite frontend. Phase 1 supplies data/routing plumbing. Phase 2 supplies
-the app shell, conditions header, toolbar, and state management. Globe/map scenes
-and full route panels are introduced in subsequent phases; the scene is
-intentionally empty until then.
+the app shell, conditions header, toolbar, and state management. Phase 3 adds the
+interactive Three.js globe. Phase 4 adds the Leaflet imagery stack, endpoint
+selection, hazards, route drawing, and globe/map transitions. Full routing panels
+and the Calculate action remain for Phase 5.
 
 ## Run
 
@@ -28,8 +29,67 @@ node node_modules/playwright/cli.js install chromium
 ```
 
 `PLAYWRIGHT_CHANNEL` can select another installed Chromium channel, e.g. `msedge`.
-Browser checks cover Phases 1 and 2; shell screenshots are written under the
-system temporary directory in `opencode/nasa-mars-phase2/`, not into the repo.
+Browser checks cover Phases 1–4, including native two-touch pinch, marker focus
+and hiding, imagery fallback, endpoint selection, hazards, route geometry, and
+globe/map transitions. Tile coverage/failure tests use deterministic fixtures:
+they do not establish live NASA availability. Route drawing is tested through a
+component fixture with a real calculated route, before Phase 5 adds its controls.
+Screenshots are written under the system temporary directory in
+`opencode/nasa-mars-phase2/`, `opencode/nasa-mars-phase3/`, and
+`opencode/nasa-mars-phase4/`, not into the repo.
+
+For a separate live-provider smoke check, run `node tests/phase4.live.js`.
+It waits for a real CTX tile, records provider coverage misses/runtime errors,
+and saves a live-map screenshot. Network availability affects this optional
+check; sparse providers can return HTTP 404s without breaking the fallback layers.
+
+## Globe controls
+
+- Drag to orbit; scroll or pinch to zoom. Panning is disabled.
+- Click a site marker (or focus it with the keyboard and press Enter) to centre
+  that site. Reduced-motion preferences skip the focus animation.
+- Zoom below 1.55 Mars radii to enter map view, preserving the globe viewport and
+  passing the current centre to the map at zoom 4.
+- Camera distance is limited to 1.3–6 radii. At the default distance the globe is
+  approximately 690px across in the 1440×1024 design viewport.
+- Texture credit is visible in the globe; WebGL/texture/context failures show an
+  error instead of a fake globe. GPU resources and controls are disposed on unmount.
+
+## Map controls
+
+- The map toolbar button on the globe opens the retained study-area view
+  (Jezero on first entry); close-in globe zoom instead enters at the globe centre.
+- Drag to pan; wheel, pinch, double-click, or keyboard `=`/`-` to zoom.
+  Zooming out to level 3 returns to the globe. Separate entry/exit thresholds
+  preserve endpoints, route, panel, and hazard settings without a transition loop.
+- Click inside the dashed DEM footprint: first click sets start, second sets
+  destination, third starts a new pair. Points snap to DEM cell centres; outside
+  or missing-elevation selections show validation messages.
+- In map view the third toolbar button toggles slope hazards and the legend:
+  green <10°, yellow 10–15°, red >15°. No-data cells remain transparent.
+- **To find the study area:** in 2D, click the pin. It fits the labeled
+  `JEZERO · STUDY AREA` rectangle and opens the planner, even if already active.
+  Enabling hazards also brings Jezero into view if coverage is off-screen or
+  too small. A useful close-up inside the study area is left unchanged.
+  Hazards are not available globally; the legend indicates when you pan away.
+- Imagery stays stacked from coarse to fine. Failed tiles become transparent;
+  a tiled local Mars texture remains beneath the stack as a last-resort fallback.
+- THEMIS, CTX, and HiRISE detail is naturally **grayscale**, not a grey error
+  screen. In detail view only the coarse color fallback is desaturated to avoid
+  orange checkerboard gaps. Scientific detail and hazard colors are not recolored.
+  New native levels appear as batches; stalled tiles fall back after 20 seconds.
+  Global HiRISE is above coarser Jezero CTX, not hidden under it. The small source
+  readout distinguishes loading/missing detail from available imagery.
+- `MarsMap` draws supplied route cells as a 4px golden line with a glow and fits
+  the view with UI-aware padding. User-facing route calculation is Phase 5.
+- If the data owner provides `public/data/jezero_ortho.png`, restart Vite or
+  rebuild to enable the local image at the grid bounds. Without it, Jezero WMTS
+  imagery is used. No protected data files are created or changed by this loader.
+
+`npm run test:browser` also reproduces globe entry far from Jezero followed by
+hazard activation, re-location using an already-active pin, partial/slow imagery,
+and stalled-tile fallback. The live smoke check now verifies a visible hazard
+raster and a promoted CTX layer, rather than merely counting a decoded tile.
 
 ## Ownership
 

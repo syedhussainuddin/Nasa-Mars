@@ -3,8 +3,26 @@ import { existsSync } from "node:fs";
 import { chromium } from "playwright";
 import { createServer } from "vite";
 import { checkPhase2 } from "./phase2.browser.js";
+import { checkPhase3 } from "./phase3.browser.js";
+import { installImageryFixtures } from "./imageryFixtures.js";
+import { checkPhase4, phase4Harness } from "./phase4.browser.js";
+import { checkMapFixes } from "./mapFixes.browser.js";
 
-const server = await createServer({ server: { host: "127.0.0.1", port: 0, open: false } });
+const server = await createServer({
+  server: { host: "127.0.0.1", port: 0, open: false, hmr: false },
+  plugins: [{
+    name: "phase4-component-fixture",
+    configureServer(server) {
+      // Serve HTML over real localhost HTTP, not Playwright route.fulfill:
+      // Chromium's local-network checks otherwise block Vite's dev websocket.
+      server.middlewares.use((request, response, next) => {
+        if (request.url?.split("?")[0] !== "/__phase4_harness.html") return next();
+        response.setHeader("Content-Type", "text/html");
+        response.end(phase4Harness);
+      });
+    },
+  }],
+});
 let browser;
 try {
   await server.listen();
@@ -12,6 +30,7 @@ try {
     (existsSync(chromium.executablePath()) ? undefined : "chrome");
   browser = await chromium.launch({ channel });
   const page = await browser.newPage();
+  await installImageryFixtures(page);
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("console", (message) => {
@@ -84,6 +103,9 @@ try {
   assert.deepEqual(result.texture, [2048, 1024]);
   console.log("Phase 1 Chromium checks passed: scaffold, grid cache, rasters, real routing, conditions, storage, texture; no console errors.");
   await checkPhase2(page, server.resolvedUrls.local[0]);
+  await checkPhase3(page, server.resolvedUrls.local[0]);
+  await checkPhase4(page, server.resolvedUrls.local[0]);
+  await checkMapFixes(page, server.resolvedUrls.local[0]);
   assert.deepEqual(errors, []);
 } finally {
   await browser?.close();

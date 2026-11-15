@@ -1,4 +1,7 @@
 // Frontend-only state. Routing and DEM modules remain owned by the data team.
+import { DEFAULT_CENTER, DEFAULT_DISTANCE } from "../globe/globeMath.js";
+import { MAP_ENTRY_ZOOM, MAP_EXIT_ZOOM } from "../map/mapHelpers.js";
+
 export function createInitialState() {
   return {
     view: "globe",
@@ -6,13 +9,15 @@ export function createInitialState() {
     endpoints: { start: null, end: null },
     route: null,
     hazardsVisible: false,
+    studyFocus: null,
+    studyFocusId: 0,
     routeStatus: "idle",
     routeError: "",
     routeRequestId: 0,
     transition: null,
     transitionId: 0,
     viewports: {
-      globe: { center: { lat: 0, lon: 0 }, distance: 3 },
+      globe: { center: { ...DEFAULT_CENTER }, distance: DEFAULT_DISTANCE },
       map: { center: { lat: 18.36, lon: 77.22 }, zoom: 11 },
     },
   };
@@ -49,10 +54,56 @@ export function appReducer(state, action) {
       return { ...state, panel: state.panel === action.panel ? null : action.panel };
     case "SET_VIEW":
       return changeView(state, action.view);
+    case "LOCATE_STUDY_AREA":
+      return {
+        ...state, panel: "planner", studyFocusId: state.studyFocusId + 1,
+        studyFocus: { id: state.studyFocusId + 1, reason: "planner" },
+      };
+    case "STUDY_FOCUS_COMPLETE":
+      return state.studyFocus?.id === action.id ? { ...state, studyFocus: null } : state;
     case "MAP_TOOL":
       return state.view === "globe"
-        ? changeView(state, "map")
-        : { ...state, hazardsVisible: !state.hazardsVisible };
+        ? changeView({
+          ...state,
+          viewports: {
+            ...state.viewports,
+            map: { ...state.viewports.map, zoom: Math.max(MAP_ENTRY_ZOOM, state.viewports.map.zoom) },
+          },
+        }, "map")
+        : {
+          ...state, hazardsVisible: !state.hazardsVisible,
+          ...(!state.hazardsVisible ? {
+            studyFocusId: state.studyFocusId + 1,
+            studyFocus: { id: state.studyFocusId + 1, reason: "hazard" },
+          } : { studyFocus: null }),
+        };
+    case "ENTER_MAP":
+      if (state.view !== "globe" || !validPoint(action.viewport?.center) ||
+          !Number.isFinite(action.viewport.distance) || action.viewport.distance <= 0) return state;
+      return changeView({
+        ...state,
+        viewports: {
+          ...state.viewports,
+          globe: action.viewport,
+          map: { center: { ...action.viewport.center }, zoom: MAP_ENTRY_ZOOM },
+        },
+      }, "map");
+    case "EXIT_MAP":
+      if (state.view !== "map" || !validPoint(action.viewport?.center) ||
+          !Number.isFinite(action.viewport.zoom) || action.viewport.zoom > MAP_EXIT_ZOOM) return state;
+      return changeView({
+        ...state,
+        viewports: {
+          map: action.viewport,
+          // Hysteresis: never restore the close-in camera that triggered entry.
+          globe: { center: { ...action.viewport.center }, distance: Math.max(DEFAULT_DISTANCE, state.viewports.globe.distance) },
+        },
+      }, "globe");
+    case "ENDPOINT_ERROR":
+      return {
+        ...state, panel: "planner",
+        routeError: typeof action.error === "string" ? action.error : "This map point could not be selected.",
+      };
     case "TRANSITION_COMPLETE":
       return state.transition?.id === action.id ? { ...state, transition: null } : state;
     case "UPDATE_VIEWPORT": {

@@ -167,8 +167,31 @@ loading indicators, validation messages, error messages allowed beyond the desig
 Dependencies limited to the allowed list. No commits unless explicitly asked.
 Do not touch `data-prep/`, `docs/` routing algorithms, or `findRoute` internals.
 
-**Status:** Phases 1 and 2 complete. Phase 2 verified with 12 passing unit tests,
-Phase 1/2 browser checks (zero console errors), and `npm run build`.
-The scene and panel contents remain intentionally unimplemented until Phases 3–5.
-No protected files were changed during Phase 2. Ownership rules above apply to
-all remaining work. No commits without an explicit request.
+**Status:** Phases 1–4 complete. Phase 4 verified with 20 passing unit tests,
+Phase 1–4 browser checks (zero console errors), and `npm run build`.
+Map checks cover EPSG:4326 imagery at z2/8/11/14, transparent sparse-tile fallback,
+endpoint click-cycle/validation, hazards, real-route drawing/fit, optional local
+image handling, terrain-load failure, and globe/map hysteresis/state preservation.
+Tile failure/coverage tests use deterministic fixtures; a separate live smoke
+check also loaded CTX imagery with no runtime errors. This does not guarantee
+all remote tiles/providers are continuously available.
+Screenshots are stored in the approved temporary directory, outside the repo.
+The Calculate action, route summary/profile, and full saved-route panels remain
+for Phase 5. The optional ortho image is absent; its presence is detected at
+Vite startup/build, so restart/rebuild after the data owner supplies it.
+No protected files were changed during Phases 2–4. Ownership rules above apply
+to all remaining work. No commits without an explicit request.
+
+**Phase 4 correction (before Phase 5):** User-reported off-screen hazards and
+mixed orange/gray tile patchwork were addressed in frontend-owned files.
+The map pin now fits and labels Jezero even when the planner is already active;
+hazard activation reveals off-screen/tiny coverage without disturbing useful
+close-ups. Coverage limitations are visible in the legend. Imagery priority no
+longer lets coarse Jezero CTX obscure global HiRISE; new native levels load as
+batches, stalled tiles time out, and only coarse color fallback is desaturated
+at detail zooms to avoid orange gaps among native grayscale imagery.
+Regression checks cover the reported globe-entry path, visible raster/rectangle,
+active-pin navigation, partial/slow/stalled providers, and preserved endpoints.
+The separate live check verifies visible Jezero hazards and displayed detail,
+not merely that a tile URL loaded. Native grayscale and sparse detail coverage
+remain source limitations, not fabricated color or global hazard coverage.

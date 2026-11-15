@@ -4,7 +4,9 @@ export default function RightToolbar({ view, panel, hazardsVisible, dispatch }) 
   const tools = [
     {
       icon: "pin", label: "Route planner", active: panel === "planner",
-      controls: "planner-panel", action: { type: "TOGGLE_PANEL", panel: "planner" },
+      title: view === "map" ? "Locate Jezero study area and open route planner" : "Route planner",
+      controls: "planner-panel", action: view === "map"
+        ? { type: "LOCATE_STUDY_AREA" } : { type: "TOGGLE_PANEL", panel: "planner" },
     },
     {
       icon: "star", label: "Saved routes", active: panel === "saved",
@@ -12,6 +14,7 @@ export default function RightToolbar({ view, panel, hazardsVisible, dispatch }) 
     },
     {
       icon: "map", label: view === "globe" ? "Switch to 2D map" : "Toggle hazard overlay",
+      title: view === "map" ? "Toggle hazards — coverage is limited to Jezero" : "Switch to 2D map",
       active: view === "map" && hazardsVisible, action: { type: "MAP_TOOL" },
     },
   ];
@@ -19,7 +22,7 @@ export default function RightToolbar({ view, panel, hazardsVisible, dispatch }) 
     <nav className="right-toolbar" aria-label="Navigation tools">
       {tools.map((tool) => (
         <button key={tool.icon} className="tool-button" type="button" aria-label={tool.label}
-          title={tool.label} aria-pressed={tool.active}
+          title={tool.title || tool.label} aria-pressed={tool.active}
           aria-controls={tool.controls}
           aria-expanded={tool.controls ? tool.active : undefined}
           onClick={() => dispatch(tool.action)}>
