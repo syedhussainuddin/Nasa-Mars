@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { chromium } from "playwright";
 import { createServer } from "vite";
+import { checkPhase2 } from "./phase2.browser.js";
 
 const server = await createServer({ server: { host: "127.0.0.1", port: 0, open: false } });
 let browser;
@@ -81,8 +82,9 @@ try {
   assert.equal(result.saveError, "");
   assert.equal(result.restored.routes.length, 1);
   assert.deepEqual(result.texture, [2048, 1024]);
-  assert.deepEqual(errors, []);
   console.log("Phase 1 Chromium checks passed: scaffold, grid cache, rasters, real routing, conditions, storage, texture; no console errors.");
+  await checkPhase2(page, server.resolvedUrls.local[0]);
+  assert.deepEqual(errors, []);
 } finally {
   await browser?.close();
   await server.close();

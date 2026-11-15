@@ -1,7 +1,9 @@
 # Mars Navigation System
 
-React + Vite scaffold. Phase 1 supplies data/routing plumbing; the designed UI
-is introduced in subsequent phases.
+React + Vite frontend. Phase 1 supplies data/routing plumbing. Phase 2 supplies
+the app shell, conditions header, toolbar, and state management. Globe/map scenes
+and full route panels are introduced in subsequent phases; the scene is
+intentionally empty until then.
 
 ## Run
 
@@ -26,6 +28,15 @@ node node_modules/playwright/cli.js install chromium
 ```
 
 `PLAYWRIGHT_CHANNEL` can select another installed Chromium channel, e.g. `msedge`.
+Browser checks cover Phases 1 and 2; shell screenshots are written under the
+system temporary directory in `opencode/nasa-mars-phase2/`, not into the repo.
+
+## Ownership
+
+Do not edit `public/data/`, `src/data/loadGrid.js`, or anything under `src/routing/`.
+Those files belong to the data/routing team. See root `PLAN.md` for collaboration
+rules. The reducer under `src/state/` is frontend-only and does not implement
+route finding. Phase 1 changes to protected files still need owner review.
 
 ## Data contracts
 

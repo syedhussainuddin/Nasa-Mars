@@ -6,6 +6,31 @@ route planner, saved routes, hazard overlay, route summary + elevation profile).
 
 ---
 
+## Ownership and collaboration rules (override conflicting steps below)
+
+- Do not edit root `README.md` or `.gitignore` (Hussain), `LICENSE` (leave
+  unchanged), `docs/` (Hussain/Abdullah), or `data-prep/` (Hussain).
+- `data/raw/` is local only: do not modify or commit it.
+- All of `web/public/data/` is off limits, including grid, ortho, metadata,
+  and conditions files.
+- `web/src/data/loadGrid.js` belongs to Hussain and is off limits.
+- All of `web/src/routing/` belongs to Hussain/Zayem and is off limits.
+- The frontend developer owns the remaining frontend files under `web/`,
+  including components, styles, entry points, and Vite configuration.
+- Only the frontend developer edits `web/package.json`. Anyone else needing
+  a library asks the frontend developer to add it. Generate the lockfile with npm.
+- If a protected file needs a change, ask its owner in the group chat first.
+  If group-chat access is unavailable, give the user a request to forward and
+  wait for approval. Do not silently edit protected files.
+
+Phase 1 predates these ownership rules and changed `conditions_sample.json`,
+`loadGrid.js`, `coordinates.js`, `planRoute.js`, and `routeMetrics.js`.
+Their owners must review those existing changes; do not automatically revert or
+further modify them. Future frontend work must use adapters in frontend-owned
+files where possible, rather than following conflicting edits in this plan.
+
+---
+
 ## 0. Verified research (complete — do not re-verify)
 
 **Imagery stack (every tile URL live-tested, 200 confirmed):**
@@ -142,4 +167,8 @@ loading indicators, validation messages, error messages allowed beyond the desig
 Dependencies limited to the allowed list. No commits unless explicitly asked.
 Do not touch `data-prep/`, `docs/` routing algorithms, or `findRoute` internals.
 
-**Status:** plan only — coding starts on approval.
+**Status:** Phases 1 and 2 complete. Phase 2 verified with 12 passing unit tests,
+Phase 1/2 browser checks (zero console errors), and `npm run build`.
+The scene and panel contents remain intentionally unimplemented until Phases 3–5.
+No protected files were changed during Phase 2. Ownership rules above apply to
+all remaining work. No commits without an explicit request.
