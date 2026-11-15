@@ -1,12 +1,28 @@
-// Task 3: convert between map coordinates and elevation-grid cells.
+// Task 3: convert between map coordinates (lat/lon) and elevation-grid cells.
 //
 // Contract (from the PRD): coordinates are plain numeric decimal degrees,
 //   { lat: 18.38, lon: 77.50 }
 // Spherical Mars datum: planetocentric and planetographic latitudes coincide.
 // Longitude is east-positive (0..360), as documented in docs/data-sources.md.
 //
-// The grid and its metadata come from web/public/data/jezero_grid.json and
-// jezero_grid_meta.json (made by data-prep/crop_dem.py).
+// The grid metadata comes from web/public/data/jezero_grid_meta.json
+// (made by data-prep/crop_dem.py): meta.bounds {xmin,ymin,xmax,ymax} in metres,
+// meta.width, meta.height. Row 0 is the NORTH edge, column 0 is the WEST edge.
+
+export const MARS_RADIUS_M = 3396190;
+
+const DEG = Math.PI / 180;
+
+/** lat/lon (degrees) -> projected x/y (metres). */
+export function latLonToXY({ lat, lon }) {
+  const lon360 = ((lon % 360) + 360) % 360;
+  return { x: MARS_RADIUS_M * lon360 * DEG, y: MARS_RADIUS_M * lat * DEG };
+}
+
+/** projected x/y (metres) -> lat/lon (degrees). */
+export function xyToLatLon({ x, y }) {
+  return { lat: y / MARS_RADIUS_M / DEG, lon: x / MARS_RADIUS_M / DEG };
+}
 
 /**
  * Convert a map coordinate to a grid cell.
@@ -28,7 +44,7 @@ export function latLonToCell(point, meta) {
 }
 
 /**
- * Convert a grid cell back to a map coordinate (cell centre).
+ * Convert a grid cell back to a map coordinate (the cell centre).
  * @param {{row:number, col:number}} cell
  * @param {object} meta
  * @returns {{lat:number, lon:number}}

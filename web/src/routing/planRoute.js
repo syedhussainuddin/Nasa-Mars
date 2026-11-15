@@ -20,12 +20,11 @@ export function planRoute(startLatLon, endLatLon, grid, meta) {
   }
 
   const result = findRoute(grid, meta, start, end);
-  if (!result || result.error) {
-    const error = result?.error;
-    return {
-      error: (typeof error === "string" ? error : error?.message) ||
-        "No route found between these points.",
-    };
-  }
+    if (!result || result.error) {
+    const e = result && result.error;
+    const message =
+      typeof e === "string" ? e : (e && e.message) || "No route found between these points.";
+    return { error: message, code: (e && e.code) || "NO_ROUTE" };
+    }
   return { start, end, ...result };
 }
